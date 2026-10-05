@@ -4436,6 +4436,12 @@ msgstr "Déverrouillez d'abord votre Ember ID"
 msgid "public.setup_needs_id_detail"
 msgstr "Votre Ember ID est verrouillé. Déverrouillez-le dans Ember ID, puis configurez de nouveau les salons publics."
 
+msgid "public.setup_create_id"
+msgstr "Créez d'abord votre Ember ID"
+
+msgid "public.setup_create_id_detail"
+msgstr "Wine et Proton exigent une phrase secrète pour votre Ember ID. Créez-le dans Ember ID, puis configurez de nouveau les salons publics."
+
 msgid "public.copy_link"
 msgstr "Copier le lien du salon"
 

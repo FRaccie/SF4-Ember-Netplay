@@ -4079,6 +4079,12 @@ msgstr "Unlock your Ember ID first"
 msgid "public.setup_needs_id_detail"
 msgstr "Your Ember ID is locked. Unlock it under Ember ID, then set up public rooms again."
 
+msgid "public.setup_create_id"
+msgstr "Create your Ember ID first"
+
+msgid "public.setup_create_id_detail"
+msgstr "Wine and Proton need a passphrase for your Ember ID. Create it under Ember ID, then set up public rooms again."
+
 msgid "public.copy_link"
 msgstr "Copy room link"
 

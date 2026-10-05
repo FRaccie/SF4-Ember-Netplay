@@ -4436,6 +4436,12 @@ msgstr "请先解锁您的 Ember ID"
 msgid "public.setup_needs_id_detail"
 msgstr "您的 Ember ID 已锁定。请先在 Ember ID 中解锁，然后重新设置公开房间。"
 
+msgid "public.setup_create_id"
+msgstr "请先创建您的 Ember ID"
+
+msgid "public.setup_create_id_detail"
+msgstr "Wine 和 Proton 需要为您的 Ember ID 设置密码。请先在 Ember ID 中创建，然后重新设置公开房间。"
+
 msgid "public.copy_link"
 msgstr "复制房间链接"
 

@@ -4436,6 +4436,12 @@ msgstr "Najpierw odblokuj swoje Ember ID"
 msgid "public.setup_needs_id_detail"
 msgstr "Twoje Ember ID jest zablokowane. Odblokuj je w sekcji Ember ID, a potem ponownie skonfiguruj pokoje publiczne."
 
+msgid "public.setup_create_id"
+msgstr "Najpierw utwórz swoje Ember ID"
+
+msgid "public.setup_create_id_detail"
+msgstr "Wine i Proton wymagają hasła do Twojego Ember ID. Utwórz je w sekcji Ember ID, a potem ponownie skonfiguruj pokoje publiczne."
+
 msgid "public.copy_link"
 msgstr "Kopiuj link do pokoju"
 

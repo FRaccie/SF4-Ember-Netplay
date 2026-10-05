@@ -4436,6 +4436,12 @@ msgstr "Nejprve odemkněte své Ember ID"
 msgid "public.setup_needs_id_detail"
 msgstr "Vaše Ember ID je uzamčeno. Odemkněte ho v části Ember ID a pak veřejné místnosti nastavte znovu."
 
+msgid "public.setup_create_id"
+msgstr "Nejprve si vytvořte Ember ID"
+
+msgid "public.setup_create_id_detail"
+msgstr "Wine a Proton potřebují pro vaše Ember ID heslo. Vytvořte ho v části Ember ID a pak veřejné místnosti nastavte znovu."
+
 msgid "public.copy_link"
 msgstr "Kopírovat odkaz místnosti"
 

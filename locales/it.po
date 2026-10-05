@@ -4436,6 +4436,12 @@ msgstr "Sblocca prima il tuo Ember ID"
 msgid "public.setup_needs_id_detail"
 msgstr "Il tuo Ember ID è bloccato. Sbloccalo da Ember ID, poi configura di nuovo le sale pubbliche."
 
+msgid "public.setup_create_id"
+msgstr "Crea prima il tuo Ember ID"
+
+msgid "public.setup_create_id_detail"
+msgstr "Wine e Proton richiedono una password per il tuo Ember ID. Crealo da Ember ID, poi configura di nuovo le sale pubbliche."
+
 msgid "public.copy_link"
 msgstr "Copia link della sala"
 

@@ -4436,6 +4436,12 @@ msgstr "Entsperren Sie zuerst Ihre Ember ID"
 msgid "public.setup_needs_id_detail"
 msgstr "Ihre Ember ID ist gesperrt. Entsperren Sie sie unter Ember ID und richten Sie dann die öffentlichen Räume erneut ein."
 
+msgid "public.setup_create_id"
+msgstr "Erstellen Sie zuerst Ihre Ember ID"
+
+msgid "public.setup_create_id_detail"
+msgstr "Wine und Proton benötigen eine Passphrase für Ihre Ember ID. Erstellen Sie sie unter Ember ID und richten Sie dann die öffentlichen Räume erneut ein."
+
 msgid "public.copy_link"
 msgstr "Raumlink kopieren"
 

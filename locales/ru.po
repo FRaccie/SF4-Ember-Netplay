@@ -4437,6 +4437,12 @@ msgstr "Сначала разблокируйте ваш Ember ID"
 msgid "public.setup_needs_id_detail"
 msgstr "Ваш Ember ID заблокирован. Разблокируйте его в разделе «Учётная запись Ember», а затем снова настройте открытые лобби."
 
+msgid "public.setup_create_id"
+msgstr "Сначала создайте ваш Ember ID"
+
+msgid "public.setup_create_id_detail"
+msgstr "Wine и Proton требуют пароль для вашего Ember ID. Создайте его в разделе «Ember ID», а затем снова настройте открытые залы."
+
 msgid "public.copy_link"
 msgstr "Копировать ссылку"
 

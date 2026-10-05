@@ -4436,6 +4436,12 @@ msgstr "먼저 Ember ID 잠금을 해제하세요"
 msgid "public.setup_needs_id_detail"
 msgstr "Ember ID가 잠겨 있습니다. Ember ID에서 잠금을 해제한 다음 공개 방을 다시 설정하세요."
 
+msgid "public.setup_create_id"
+msgstr "먼저 Ember ID를 만드세요"
+
+msgid "public.setup_create_id_detail"
+msgstr "Wine과 Proton에서는 Ember ID에 암호가 필요합니다. Ember ID에서 만든 다음 공개 방을 다시 설정하세요."
+
 msgid "public.copy_link"
 msgstr "방 링크 복사"
 

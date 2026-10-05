@@ -4436,6 +4436,12 @@ msgstr "先にEmber IDのロックを解除"
 msgid "public.setup_needs_id_detail"
 msgstr "Ember IDがロックされています。Ember IDで解除してから、公開ルームをもう一度設定してください。"
 
+msgid "public.setup_create_id"
+msgstr "先にEmber IDを作成"
+
+msgid "public.setup_create_id_detail"
+msgstr "WineとProtonではEmber IDにパスフレーズが必要です。Ember IDで作成してから、公開ルームをもう一度設定してください。"
+
 msgid "public.copy_link"
 msgstr "ルームのリンクをコピー"
 

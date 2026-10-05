@@ -380,7 +380,10 @@ std::vector<MenuEntry> PublicRoomsPanel::Rows(const ShellView& v, const std::str
             const bool needsId = !running && (setup.step == PublicSetupStep::NeedsId || id.state == "locked" || id.state == "recovery_required" ||
                 (id.state == "disabled" && id.passphraseRequired));
             MenuEntry card;
-            if (needsId) card = Row("pr-setup-id", loc::T("public.setup_needs_id"), loc::T("public.setup_needs_id_detail"));
+            // Under Wine and Proton there is no ID yet to unlock: it is created with a passphrase.
+            if (needsId && id.state == "disabled" && id.passphraseRequired)
+                card = Row("pr-setup-id", loc::T("public.setup_create_id"), loc::T("public.setup_create_id_detail"));
+            else if (needsId) card = Row("pr-setup-id", loc::T("public.setup_needs_id"), loc::T("public.setup_needs_id_detail"));
             else if (running) {
                 // Nothing to press while it works; the card says what it is doing.
                 card = ConfirmRow("pr-setup", loc::T("public.setup"), loc::T("public.setup_detail"), false);

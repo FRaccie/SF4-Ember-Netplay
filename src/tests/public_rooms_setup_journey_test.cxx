@@ -34,6 +34,8 @@ void NoIdentityJourney(){
  }
  Journey passphrase(false);passphrase.h.view.identity.passphraseRequired=true;passphrase.OpenList();
  Check(passphrase.row("pr-setup-id")&&!passphrase.row("pr-setup"),"A disabled ID with a passphrase was offered the one-press setup");
+ Check(passphrase.row("pr-setup-id")->label==loc::T("public.setup_create_id")&&passphrase.row("pr-setup-id")->detail==loc::T("public.setup_create_id_detail"),
+  "An ID that does not exist yet was said to be locked");
 }
 
 // The one-press setup: a confirmed press (Cancel is where the dialog starts) reads the

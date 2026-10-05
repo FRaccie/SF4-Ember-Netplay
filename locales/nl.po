@@ -4436,6 +4436,12 @@ msgstr "Ontgrendel eerst je Ember ID"
 msgid "public.setup_needs_id_detail"
 msgstr "Je Ember ID is vergrendeld. Ontgrendel hem bij Ember ID en stel de openbare kamers daarna opnieuw in."
 
+msgid "public.setup_create_id"
+msgstr "Maak eerst je Ember ID"
+
+msgid "public.setup_create_id_detail"
+msgstr "Wine en Proton hebben een wachtwoordzin nodig voor je Ember ID. Maak hem bij Ember ID en stel de openbare kamers daarna opnieuw in."
+
 msgid "public.copy_link"
 msgstr "Kamerlink kopiëren"
 
