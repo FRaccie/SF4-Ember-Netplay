@@ -452,8 +452,8 @@ target_link_libraries(sf4e_replay_files PUBLIC spdlog::spdlog PRIVATE nlohmann_j
 # them, and the launcher and Sidecar must still load there.
 add_library(sf4e_video STATIC "src/platform/VideoEncoder.cxx" "src/platform/VideoEncoder.hxx" "src/platform/VideoLink.cxx" "src/platform/VideoLink.hxx" "src/platform/FrameGrab.cxx" "src/platform/FrameGrab.hxx")
 target_compile_features(sf4e_video PUBLIC cxx_std_17)
-target_link_libraries(sf4e_video PUBLIC spdlog::spdlog mfplat mfreadwrite mfuuid mmdevapi ole32 delayimp)
-target_link_options(sf4e_video INTERFACE "/DELAYLOAD:mfplat.dll" "/DELAYLOAD:mfreadwrite.dll" "/DELAYLOAD:MMDevAPI.dll")
+target_link_libraries(sf4e_video PUBLIC spdlog::spdlog mfplat mfreadwrite mfuuid mmdevapi d3d11 dxgi ole32 delayimp)
+target_link_options(sf4e_video INTERFACE "/DELAYLOAD:mfplat.dll" "/DELAYLOAD:mfreadwrite.dll" "/DELAYLOAD:MMDevAPI.dll" "/DELAYLOAD:d3d11.dll" "/DELAYLOAD:dxgi.dll")
 if(BUILD_TESTING)
     add_executable(VideoEncoderTest "src/tests/video_encoder_test.cxx")
     target_link_libraries(VideoEncoderTest PRIVATE sf4e_video winmm)

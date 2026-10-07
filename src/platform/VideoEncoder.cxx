@@ -7,6 +7,8 @@
 #include <mftransform.h>
 #include <codecapi.h>
 #include <mmdeviceapi.h>
+#include <d3d11.h>
+#include <dxgi1_6.h>
 #include <audioclient.h>
 #include <audioclientactivationparams.h>
 #include <audiopolicy.h>
@@ -205,15 +207,44 @@ HRESULT AudioType(const GUID& format, UINT32 bytesPerSecond, IMFMediaType** out)
 	return hr;
 }
 
-HRESULT Open(const std::wstring& file) {
+// The graphics card to encode on, and its name. Media Foundation left to
+// itself takes the first hardware encoder registered, which on a laptop with
+// two cards is the built-in one's, whichever card the game draws on; and this
+// process, unknown to the driver, would be given the built-in card too. Asked
+// with a device on the card Windows calls high performance, which is the
+// discrete one where there are two, the sink writer takes that card's
+// encoder. Null where Windows cannot say (before 10 1803), the card is a
+// software one, or SF4E_VIDEO_ENCODER=windows asks for the old choice.
+ComPtr<IMFDXGIDeviceManager> s_card;
+std::string s_cardName;
+ComPtr<IMFDXGIDeviceManager> PreferredCard(std::string& name) {
+	ComPtr<IDXGIFactory6> factory; ComPtr<IDXGIAdapter1> adapter; ComPtr<ID3D11Device> device; ComPtr<ID3D10Multithread> threads; ComPtr<IMFDXGIDeviceManager> manager;
+	DXGI_ADAPTER_DESC1 card = {}; UINT token = 0; char asked[16] = {0};
+	if (GetEnvironmentVariableA("SF4E_VIDEO_ENCODER", asked, sizeof asked) && !_stricmp(asked, "windows")) return nullptr;
+	// Delay-loaded (CMakeLists.txt), like Media Foundation.
+	if (!LoadLibraryW(L"dxgi.dll") || !LoadLibraryW(L"d3d11.dll")) return nullptr;
+	if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&factory))) || FAILED(factory->EnumAdapterByGpuPreference(0, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&adapter))) ||
+		FAILED(adapter->GetDesc1(&card)) || (card.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)) return nullptr;
+	if (FAILED(D3D11CreateDevice(adapter.Get(), D3D_DRIVER_TYPE_UNKNOWN, nullptr, D3D11_CREATE_DEVICE_VIDEO_SUPPORT | D3D11_CREATE_DEVICE_BGRA_SUPPORT, nullptr, 0, D3D11_SDK_VERSION, &device, nullptr, nullptr))) return nullptr;
+	// The encoder uses the device from its own threads.
+	if (SUCCEEDED(device.As(&threads))) threads->SetMultithreadProtected(TRUE);
+	if (FAILED(MFCreateDXGIDeviceManager(&token, &manager)) || FAILED(manager->ResetDevice(device.Get(), token))) return nullptr;
+	char narrow[256] = {0};
+	WideCharToMultiByte(CP_UTF8, 0, card.Description, -1, narrow, sizeof narrow - 1, nullptr, nullptr);
+	name = narrow;
+	return manager;
+}
+
+HRESULT Open(const std::wstring& file, IMFDXGIDeviceManager* card) {
 	ComPtr<IMFAttributes> attributes;
 	ComPtr<IMFMediaType> coded, nv12, aac, pcm;
 	// Past this size the cards' H.264 encoders decline and Windows hands the
 	// job to whatever else is registered (one such took 1.4 GB for 3840x2400).
 	const bool hevc = s_width > 4096 || s_height > 2160;
-	HRESULT hr = MFCreateAttributes(&attributes, 1);
+	HRESULT hr = MFCreateAttributes(&attributes, 2);
 	// The graphics card's encoder, when its driver registered one.
 	if (SUCCEEDED(hr)) hr = attributes->SetUINT32(MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, TRUE);
+	if (SUCCEEDED(hr) && card) hr = attributes->SetUnknown(MF_SINK_WRITER_D3D_MANAGER, card);
 	if (SUCCEEDED(hr)) hr = MFCreateSinkWriterFromURL(file.c_str(), nullptr, attributes.Get(), &s_writer);
 	if (SUCCEEDED(hr)) hr = VideoType(hevc ? MFVideoFormat_HEVC : MFVideoFormat_H264, &coded);
 	if (SUCCEEDED(hr)) hr = coded->SetUINT32(MF_MT_AVG_BITRATE, static_cast<UINT32>(s_width * s_height * kFrameRate * (hevc ? kHevcBitsPerPixel : kBitsPerPixel)));
@@ -238,10 +269,13 @@ void LogEncoder() {
 	wchar_t name[128] = L"unnamed"; UINT32 async = 0;
 	if (FAILED(s_writer->GetServiceForStream(s_videoStream, GUID_NULL, IID_PPV_ARGS(&encoder))) || FAILED(encoder->GetAttributes(&attributes))) return;
 	attributes->GetString(MFT_FRIENDLY_NAME_Attribute, name, 128, nullptr);
+	// A driver's encoder may give no name; its vendor ("VEN_8086" is Intel) tells whose it is.
+	if (!wcscmp(name, L"unnamed")) attributes->GetString(MFT_ENUM_HARDWARE_VENDOR_ID_Attribute, name, 128, nullptr);
 	attributes->GetUINT32(MF_TRANSFORM_ASYNC, &async);
 	char narrow[256] = {0};
 	WideCharToMultiByte(CP_UTF8, 0, name, -1, narrow, sizeof narrow - 1, nullptr, nullptr);
-	s_summary = fmt::format("{}x{} {} by '{}' ({}), holding up to {} pictures{}", s_width, s_height, s_width > 4096 || s_height > 2160 ? "HEVC" : "H.264", narrow, async ? "hardware" : "software", s_holdLimit, s_capture ? "" : ", no sound");
+	s_summary = fmt::format("{}x{} {} by '{}' ({}{}), holding up to {} pictures{}", s_width, s_height, s_width > 4096 || s_height > 2160 ? "HEVC" : "H.264", narrow, async ? "hardware" : "software",
+		s_card ? " on " + s_cardName : std::string(", Windows' choice"), s_holdLimit, s_capture ? "" : ", no sound");
 	spdlog::info("Video: {}", s_summary);
 }
 }
@@ -270,12 +304,21 @@ bool Begin(const std::wstring& file, unsigned width, unsigned height, unsigned l
 	s_holdLimit = static_cast<long>((std::min)(120ull, memory.ullAvailVirtual * 6 / 10 / (width * height * 3ull / 2)));
 	s_keepAll = !soundPid;
 	if (soundPid) OpenSound(soundPid);
-	hr = Open(file);
+	// On the preferred card first; where that card has no encoder for this
+	// picture, the encoder Windows picks by itself, as before.
+	s_card = PreferredCard(s_cardName);
+	hr = s_card ? Open(file, s_card.Get()) : E_NOINTERFACE;
+	if (FAILED(hr)) {
+		if (s_card) spdlog::info("Video: no encoder on {} ({:#x}); taking the one Windows picks", s_cardName, static_cast<unsigned>(hr));
+		s_writer.Reset(); s_card.Reset(); s_cardName.clear();
+		DeleteFileW(file.c_str());
+		hr = Open(file, nullptr);
+	}
 	s_returned = Microsoft::WRL::Make<Returned>();
 	if (FAILED(hr)) {
 		s_summary = fmt::format("the encoder did not open ({:#x})", static_cast<unsigned>(hr));
 		spdlog::warn("Video: {}", s_summary);
-		s_writer.Reset(); s_capture.Reset(); s_client.Reset(); MFShutdown();
+		s_writer.Reset(); s_card.Reset(); s_capture.Reset(); s_client.Reset(); MFShutdown();
 		DeleteFileW(file.c_str());
 		return false;
 	}
@@ -318,7 +361,7 @@ bool End() {
 	const HRESULT hr = s_writer->Finalize();
 	s_summary = fmt::format("{} pictures written, {} dropped with the encoder behind, closed with {:#x}", s_pictures, s_dropped, static_cast<unsigned>(hr));
 	spdlog::info("Video: {}", s_summary);
-	s_writer.Reset(); s_capture.Reset(); s_client.Reset();
+	s_writer.Reset(); s_card.Reset(); s_capture.Reset(); s_client.Reset();
 	MFShutdown();
 	return SUCCEEDED(hr) && s_pictures > 0 && !s_failed;
 }

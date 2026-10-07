@@ -2,8 +2,10 @@
 #include "VideoEncoder.hxx"
 
 #include <windows.h>
+#include <shlobj.h>
 #include <objbase.h>
 #include <spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h>
 #include <cstring>
 
 namespace {
@@ -120,11 +122,15 @@ bool Closed(bool& ok) {
 void Abort() {
 	if (!s_shared) return;
 	spdlog::warn("Video: the encoder's process did not finish; ending it");
+	// What it leaves is a file no player opens: gone with it.
+	s_shared->file[1023] = 0;
+	const std::wstring part = s_shared->file;
 	TerminateProcess(s_process, 1);
 	WaitForSingleObject(s_process, 1000);
 	bool ok = false;
 	Closed(ok);
 	Close();
+	if (DeleteFileW(part.c_str())) spdlog::info("Video: removed the unfinished file");
 }
 
 bool Finish() {
@@ -137,6 +143,25 @@ bool Finish() {
 	return ok;
 }
 
+namespace {
+// The encoder's process has no log of its own (the launcher's rotates on a
+// launcher start, which this is not). One file, written anew each export,
+// beside the others: what was opened, a line every ten seconds, how it closed.
+void LogToFile() {
+	PWSTR appData = nullptr;
+	if (SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, nullptr, &appData) != S_OK) return;
+	const std::wstring folder = std::wstring(appData) + L"\\sf4e\\logs";
+	CoTaskMemFree(appData);
+	if (GetFileAttributesW(folder.c_str()) == INVALID_FILE_ATTRIBUTES) return;
+	try {
+		auto logger = spdlog::basic_logger_mt("video-encoder", folder + L"\\video-encoder.log", true);
+		logger->flush_on(spdlog::level::info);
+		spdlog::set_default_logger(logger);
+	}
+	catch (const std::exception&) {}
+}
+}
+
 int Serve(const std::wstring& link) {
 	const HANDLE mapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, link.c_str());
 	const HANDLE wake = OpenEventW(SYNCHRONIZE, FALSE, (link + L"-wake").c_str());
@@ -144,6 +169,7 @@ int Serve(const std::wstring& link) {
 	if (!shared || !wake) return 2;
 	const HANDLE game = OpenProcess(SYNCHRONIZE, FALSE, shared->game);
 	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+	LogToFile();
 	shared->file[1023] = 0;
 	const bool opened = video::Begin(shared->file, shared->width, shared->height, shared->fast ? 0 : shared->game);
 	const LONGLONG begun = video::Clock();
@@ -151,8 +177,10 @@ int Serve(const std::wstring& link) {
 	InterlockedExchange(&shared->opened, opened ? 1 : -1);
 	if (!opened) return 3;
 	const HANDLE either[2] = {wake, game};
+	ULONGLONG noted = GetTickCount64();
 	for (bool gone = false; !gone;) {
 		gone = WaitForMultipleObjects(game ? 2 : 1, either, FALSE, 200) == WAIT_OBJECT_0 + 1 || shared->stop;
+		if (GetTickCount64() - noted >= 10000) { noted = GetTickCount64(); spdlog::info("Video: {} pictures taken of {} sent", shared->taken, shared->sent); }
 		for (; shared->taken != shared->sent; InterlockedIncrement(&shared->taken)) {
 			const BYTE* const slot = Slot(shared, shared->taken);
 			video::Frame(slot, shared->width, slot + shared->width * shared->height, shared->width,
@@ -165,6 +193,7 @@ int Serve(const std::wstring& link) {
 	if (closed) closed = MoveFileExW(shared->file, shared->final, MOVEFILE_REPLACE_EXISTING) != 0;
 	else DeleteFileW(shared->file);
 	strncpy_s(shared->closedAs, video::Summary().c_str(), _TRUNCATE);
+	spdlog::info("Video: {}", closed ? "the file has its name" : "no file");
 	return closed ? 0 : 1;
 }
 

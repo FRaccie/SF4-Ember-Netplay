@@ -5,7 +5,10 @@
 // Ember's own video file: H.264 and AAC in an .mp4 through Media Foundation's
 // sink writer, which takes the graphics card's encoder (NVENC, Quick Sync,
 // AMF) when its driver offers one and Microsoft's software encoder otherwise.
-// A picture past 4096x2160, which those H.264 encoders decline, is HEVC.
+// The encoder is asked for on the card Windows calls high performance (the
+// discrete one of two), and where that card has none, Windows' own pick is
+// taken as before. A picture past 4096x2160, which those H.264 encoders
+// decline, is HEVC.
 // The picture is whatever the caller hands over, frame by frame; the sound is
 // one process's output, captured through WASAPI process loopback (Windows 10
 // 2004 and later; without it the file has no sound). That capture comes

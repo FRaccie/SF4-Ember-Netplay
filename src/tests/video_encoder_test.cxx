@@ -35,8 +35,12 @@ int wmain(int argc, wchar_t** argv) {
 	if (!link::Start(file.wstring(), width, height, self, fast)) { std::cerr << "The encoder's process did not start\n"; return 1; }
 	if (link::Start(file.wstring(), width, height, self)) { std::cerr << "A second export started over the first\n"; return 1; }
 
-	// Three seconds of 440 Hz: the encoder's process has this one's sound to find.
-	std::vector<std::int16_t> tone(48000 * 3 * 2);
+	// SF4E_TEST_GAP: after the first second no picture is sent for that many
+	// seconds while the tone plays on, as when a fullscreen game is left with
+	// Alt+Tab during an export: the file still has to close.
+	const int gap = std::getenv("SF4E_TEST_GAP") ? std::atoi(std::getenv("SF4E_TEST_GAP")) : 0;
+	// Three seconds of 440 Hz, and the gap's: the encoder's process has this one's sound to find.
+	std::vector<std::int16_t> tone(static_cast<std::size_t>(48000) * (3 + gap) * 2);
 	for (std::size_t i = 0; i < tone.size(); i++) tone[i] = static_cast<std::int16_t>(8000 * std::sin(i / 2 * 2 * 3.14159265 * 440 / 48000));
 	WAVEFORMATEX format = {WAVE_FORMAT_PCM, 2, 48000, 48000 * 4, 4, 16, 0};
 	HWAVEOUT out = nullptr; WAVEHDR header = {};
@@ -61,7 +65,8 @@ int wmain(int argc, wchar_t** argv) {
 	const DWORD start = GetTickCount();
 	for (int frame = 0; frame < frames; frame++) {
 		link::Send(luma.data(), pitch, chroma.data(), pitch);
-		while (!fast && GetTickCount() - start < static_cast<DWORD>((frame + 1) * 1000 / 60)) Sleep(1);
+		if (gap && frame == 60) Sleep(gap * 1000);
+		while (!fast && GetTickCount() - start < static_cast<DWORD>((frame + 1) * 1000 / 60 + (frame >= 60 ? gap * 1000 : 0))) Sleep(1);
 	}
 	if (mixer) mixer->SetMasterVolume(1, nullptr);
 	if (out) { waveOutReset(out); waveOutUnprepareHeader(out, &header, sizeof header); waveOutClose(out); }
