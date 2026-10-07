@@ -22,6 +22,7 @@
 #include "sf4e__Game__Battle.hxx"
 #include "BuildIdentity.hxx"
 #include "sf4e__Platform.hxx"
+#include "sf4e__ReplayCapture.hxx"
 #include "sf4e__UserApp.hxx"
 #include "sf4e__Overlay.hxx"
 #include "sf4e__OverlayPrefs.hxx"
@@ -178,6 +179,17 @@ void fD3D::CancelFrameShift() {
 // anywhere else in the frame only eats into that spin and the frame rate never
 // changes. Rift pacing therefore moves the limiter's period for one frame.
 int fD3D::LimitFrame(float frameDelta) {
+    // A fast video export: no wait, so the replay plays as fast as its
+    // pictures are taken (VideoLink.hxx). The period is the game's again
+    // after the call, as with a shift below.
+    if (sf4e::replaycapture::Fast()) {
+        float* period = rD3D::GetFramePeriodSeconds(this);
+        const float savedPeriod = *period, none = 1e-6f;
+        *period = none;
+        const int result = (this->*rD3D::privateMethods.LimitFrame)(frameDelta);
+        if (*period == none) *period = savedPeriod;
+        return result;
+    }
     LimiterTest& test = Test();
     const auto taken = s_frameShift.Take();
     const double shiftMs = test.enabled ? test.shiftMs : taken.requestUs / 1000.0;
@@ -235,15 +247,18 @@ void fD3D::BuildPresentParameters() {
 
 void fD3D::RunScene_Render(void* sceneCommandList) {
     (this->*rD3D::privateMethods.RunScene_Render)(sceneCommandList);
+    sf4e::replaycapture::Frame(lpD3DDevice);
     Overlay::DrawOverlay();
 }
 
 void fD3D::Destroy() {
+    sf4e::replaycapture::Release();
     Overlay::FreeOverlay();
     (this->*rD3D::privateMethods.Destroy)();
 }
 
 DWORD fD3D::Reset() {
+    sf4e::replaycapture::Release();
     Overlay::FreeOverlay();
     DWORD out = (this->*rD3D::privateMethods.Reset)();
     Overlay::InitializeOverlay(

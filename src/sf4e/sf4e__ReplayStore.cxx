@@ -17,6 +17,7 @@
 #include "../platform/Utf8.hxx"
 #include "sf4e__Game__Battle.hxx"
 #include "sf4e__GameEvents.hxx"
+#include "sf4e__ReplayCapture.hxx"
 
 namespace {
 
@@ -147,10 +148,13 @@ void SkipSplash(Dimps::Event::EventBase* versus) {
 // replay to play, for Watch, else -1. started: the log has left its list for
 // the replay. splash: ticks of the Versus state, -1 once skipped.
 constexpr int kPatience = 600, kSplashTicks = 120, kGoneTicks = 120;
+// video: the .mp4 an export writes, empty otherwise; fast: without the
+// frame limiter; awaited: the capture was started and its outcome is owed.
 struct Operation {
 	sf4e::replaystore::Status status;
 	int waited = 0, slot = -1, splash = 0;
-	bool started = false;
+	bool started = false, fast = false, awaited = false;
+	std::wstring video;
 	void Enter(Step step) { status.step = step; waited = 0; }
 	void Notice(const char* key, bool error) { status.notice = sf4e::loc::T(key); status.noticeError = error; }
 } s_operation;
@@ -185,11 +189,12 @@ const sf4e::replaystore::Status& sf4e::replaystore::GetStatus() { return s_opera
 
 void sf4e::replaystore::Start(const replay::Request& request, bool atMainMenu, bool noRoom) {
 	Operation& op = s_operation;
-	const bool import = request.mode == replay::Mode::Add || request.mode == replay::Mode::Watch;
-	const bool jump = request.mode == replay::Mode::Watch || request.mode == replay::Mode::OpenLog;
+	const bool exporting = request.mode == replay::Mode::Export || request.mode == replay::Mode::ExportFast;
+	const bool import = request.mode == replay::Mode::Add || request.mode == replay::Mode::Watch || exporting;
+	const bool jump = request.mode == replay::Mode::Watch || request.mode == replay::Mode::OpenLog || exporting;
 	if (!import && !jump) return;
-	if (op.status.step != Step::Idle || !atMainMenu) { op.Notice("replays.not_ready", true); return; }
-	op.slot = -1;
+	if (op.status.step != Step::Idle || !atMainMenu || op.awaited) { op.Notice("replays.not_ready", true); return; }
+	op.slot = -1; op.video.clear();
 	if (import) {
 		if (!Ready() || SavesBusy()) { op.Notice("replays.not_ready", true); return; }
 		const std::wstring path = platform::Utf8ToWide(request.path.c_str());
@@ -206,11 +211,34 @@ void sf4e::replaystore::Start(const replay::Request& request, bool atMainMenu, b
 	}
 	op.status.logOpens++;
 	op.started = false; op.splash = 0;
+	if (exporting) {
+		// Ember's encoder writes straight next to the replay.
+		const std::wstring path = platform::Utf8ToWide(request.path.c_str());
+		const std::size_t dot = path.find_last_of(L'.');
+		op.video = (dot == std::wstring::npos ? path : path.substr(0, dot)) + L".mp4";
+		op.fast = request.mode == replay::Mode::ExportFast;
+	}
 	op.Enter(Step::OpeningLog);
+}
+
+bool sf4e::replaystore::Exporting() {
+	const Operation& op = s_operation;
+	return !op.video.empty() && (op.status.step == Step::SelectingRow || op.status.step == Step::Playing);
 }
 
 void sf4e::replaystore::Tick(bool atMainMenu) {
 	Operation& op = s_operation;
+	// An export's file closes on the encoder's time; its outcome is the notice.
+	if (op.awaited) {
+		const replaycapture::State capture = replaycapture::GetState();
+		if (capture == replaycapture::State::Done || capture == replaycapture::State::Failed) {
+			const std::string file = platform::WideToUtf8(op.video);
+			op.status.notice = capture == replaycapture::State::Done ? loc::Tf("replays.exported", file) : std::string(loc::T("replays.gpu_not_exported"));
+			op.status.noticeError = capture != replaycapture::State::Done;
+			replaycapture::Clear();
+			op.awaited = false; op.video.clear();
+		}
+	}
 	if (op.status.step == Step::Idle) return;
 	auto* const log = BattleLogEvent();
 	auto* const state = BattleLogState(log);
@@ -228,8 +256,14 @@ void sf4e::replaystore::Tick(bool atMainMenu) {
 	case Step::Playing:
 		if (!log) {
 			// The player left the log, or the game moved on without it.
-			if (op.waited > kGoneTicks) op.Enter(Step::InLog);
+			if (op.waited > kGoneTicks) { replaycapture::End(); op.Enter(Step::InLog); }
 			break;
+		}
+		// The fight is loading: record from here to the log's return.
+		if (Named(state, "Battle") && !op.video.empty() && !op.awaited) {
+			replaycapture::Begin(op.video, op.fast);
+			op.awaited = true;
+			spdlog::info("Replay: encoding the playback{}", op.fast ? ", as fast as the encoder takes it and without sound" : "");
 		}
 		if (Named(state, "Versus") || Named(state, "Battle")) {
 			op.started = true; op.waited = 0;
@@ -237,10 +271,11 @@ void sf4e::replaystore::Tick(bool atMainMenu) {
 		}
 		else if (Named(state, "Select") && op.started) {
 			// Watched, or left: back to the main menu, where Ember reopens.
+			replaycapture::End();
 			GameEvents::MainMenu::LeaveLocalBattleLog();
 			op.Enter(Step::InLog);
 		}
-		else if (late) { spdlog::warn("Replay: the battle log did not start slot {}", op.slot); op.Enter(Step::InLog); }
+		else if (late) { spdlog::warn("Replay: the battle log did not start slot {}", op.slot); op.video.clear(); op.Enter(Step::InLog); }
 		break;
 	case Step::InLog:
 		if (atMainMenu && !log) { op.status.returns++; op.Enter(Step::Idle); }
