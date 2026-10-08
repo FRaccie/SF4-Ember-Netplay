@@ -9,7 +9,7 @@ name: Windows test suite
 # the variable EMBER_WINDOWS_RUNNER to true; without it the job is skipped.
 on:
   push:
-    branches: [release]
+    branches: [release, fraccie/faster-tests]
   schedule:
     - cron: '0 2 * * *'
   workflow_dispatch:
