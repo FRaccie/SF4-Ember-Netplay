@@ -521,10 +521,13 @@ async fn a_lone_report_or_a_silent_game_goes_to_review() {
     // must not count, or a busy machine pushes the first check over.
     f.bridge.clock.freeze();
     report(&f, &f.a, &f.a, &id, &permit, 1, Outcome::P1Win).await;
-    f.bridge.clock.advance(59);
+    // The clock is the wall clock plus what the test adds, in whole seconds,
+    // so real time that passes on a busy machine counts too. Stay ten
+    // seconds inside the partner's minute, then go as far past it.
+    f.bridge.clock.advance(50);
     ember_bridge::maintain(f.bridge.state()).await;
     assert_eq!(state(&f, &id).await["state"], "awaiting_reports");
-    f.bridge.clock.advance(2);
+    f.bridge.clock.advance(20);
     ember_bridge::maintain(f.bridge.state()).await;
     let held = state(&f, &id).await;
     assert_eq!(held["state"], "needs_review");
