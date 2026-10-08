@@ -21,6 +21,9 @@ same value `deploy/setup.sh` takes as the folder name under `builds/`):
 docker build --build-arg BUILD_ID=<hash> -t ember-rooms:<hash> -f server/ember-rooms/docker/Dockerfile .
 ```
 
+The hash is the SHA-256 of the release's `Sidecar.dll`, in lowercase hex
+(`sha256sum Sidecar.dll`); the game sends it as its build.
+
 Three stages: a Rust stage builds the supervisor with
 `cargo build --release --locked` and the helper with the server profile
 (`--profile server`: fat LTO, one codegen unit, no symbols; players' helpers
@@ -35,7 +38,37 @@ A room host admits only clients of its own build, so one image is one build.
 A new client release is a new image; run it beside the old one only if their
 ports and bind addresses differ, otherwise replace it as below.
 
-To move an image to the server without a registry:
+The Rust stage builds the dependencies before it copies the sources, from
+the manifests and lockfiles alone, so a source change recompiles only this
+repository's crates.
+
+## Getting the image to the server
+
+The `Room service image` workflow (`.github/workflows/room-image.yml`) builds
+the image on GitHub and pushes it to Harbor as
+`harbor.fraccie.be/sf4ember/ember-rooms:<hash>`. It runs when a `v*` tag is
+pushed and when started by hand, in a repository that has the secrets
+`HARBOR_ROBOT_USER` and `HARBOR_ROBOT_TOKEN`; without them the build is
+skipped. Its layer cache is kept in Harbor as `sf4ember/ember-rooms-cache`,
+so a run that changes no dependency reuses that layer.
+
+Only the Windows release build produces the `Sidecar.dll` the hash is taken
+from. On a tag the workflow reads it from that release's published package
+`sf4-ember-netplay-<version>.zip`, so run it again if it ran before the
+release was published. A fork sets the repository variable
+`EMBER_RELEASE_REPOSITORY` to the repository whose releases it builds for.
+Started by hand on any other commit, the workflow takes the hash as
+`build_id`.
+
+The project is public, so the server pulls without signing in, and names the
+image as `compose.yml` expects it:
+
+```
+docker pull harbor.fraccie.be/sf4ember/ember-rooms:<hash>
+docker tag harbor.fraccie.be/sf4ember/ember-rooms:<hash> ember-rooms:<hash>
+```
+
+Or, for an image built by hand, without a registry:
 
 ```
 docker save ember-rooms:<hash> | gzip | ssh vps 'gunzip | sudo docker load'
@@ -129,7 +162,7 @@ Players of the old build keep their rooms until they end, so the old image
 drains while the new one is wanted at once. The supervisor serves one
 address, so on one machine the simplest order is:
 
-1. Load the new image, set `BUILD_ID` in `.env` to it. Nothing in
+1. Pull or load the new image, set `BUILD_ID` in `.env` to it. Nothing in
    `/etc/ember-rooms/config.json` changes: the new container serves its own
    build.
 2. `docker compose up -d`: compose replaces the container, which means a

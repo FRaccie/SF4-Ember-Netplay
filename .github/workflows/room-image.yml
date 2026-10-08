@@ -1,0 +1,82 @@
+name: Room service image
+# Builds the public room service image (server/ember-rooms/docker) and pushes
+# it to Harbor as sf4ember/ember-rooms:<build id>, for the server to pull.
+# Never on pull_request: the job holds registry credentials.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      build_id:
+        description: Sidecar build hash of the client release. Empty on a release tag reads it from that release.
+        type: string
+permissions:
+  contents: read
+defaults:
+  run:
+    # With pipefail, so a package without the sidecar stops the build.
+    shell: bash
+env:
+  REGISTRY: harbor.fraccie.be
+  IMAGE: harbor.fraccie.be/sf4ember/ember-rooms
+jobs:
+  # A job cannot test a secret in its own `if`, so this one does; a repository
+  # without the Harbor robot then shows the build as skipped, not failed.
+  registry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        run: echo "configured=${{ secrets.HARBOR_ROBOT_USER != '' && secrets.HARBOR_ROBOT_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+  image:
+    needs: registry
+    if: needs.registry.outputs.configured == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out exact commit
+        run: |
+          git init .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -c protocol.version=2 fetch --depth=1 origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+      # The build id is the SHA-256 of the release's signed Sidecar.dll, which
+      # only the Windows release build produces. A release tag's id is read
+      # from the published package; any other build has to name it.
+      - name: Resolve the build id
+        env:
+          BUILD_ID: ${{ inputs.build_id }}
+          # A fork builds for the releases of the repository it follows.
+          RELEASE_REPOSITORY: ${{ vars.EMBER_RELEASE_REPOSITORY || github.repository }}
+        run: |
+          if [ -z "$BUILD_ID" ]; then
+            case "$GITHUB_REF" in
+              refs/tags/v*) version=${GITHUB_REF_NAME#v} ;;
+              *) echo "::error::Give build_id, or run on a release tag."; exit 1 ;;
+            esac
+            curl -fsSL -o package.zip \
+              "https://github.com/$RELEASE_REPOSITORY/releases/download/$GITHUB_REF_NAME/sf4-ember-netplay-$version.zip" \
+              || { echo "::error::$RELEASE_REPOSITORY has no published package for $GITHUB_REF_NAME yet; run again once it has."; exit 1; }
+            BUILD_ID=$(unzip -p package.zip "sf4-ember-netplay-$version/Sidecar.dll" | sha256sum | cut -d' ' -f1)
+            rm package.zip
+          fi
+          echo "BUILD_ID=$BUILD_ID" >> "$GITHUB_ENV"
+          echo "Build id: \`$BUILD_ID\`" >> "$GITHUB_STEP_SUMMARY"
+      - name: Sign in to Harbor
+        env:
+          HARBOR_ROBOT_USER: ${{ secrets.HARBOR_ROBOT_USER }}
+          HARBOR_ROBOT_TOKEN: ${{ secrets.HARBOR_ROBOT_TOKEN }}
+        run: printf '%s' "$HARBOR_ROBOT_TOKEN" | docker login "$REGISTRY" --username "$HARBOR_ROBOT_USER" --password-stdin
+      # The layer cache lives in Harbor under its own name, so the Rust
+      # dependency layer is reused on any machine. The default builder cannot
+      # write a registry cache; a container builder can.
+      - name: Build and push
+        run: |
+          docker buildx create --use
+          docker buildx build --push \
+            --build-arg "BUILD_ID=$BUILD_ID" --tag "$IMAGE:$BUILD_ID" \
+            --cache-from "type=registry,ref=$IMAGE-cache" \
+            --cache-to "type=registry,ref=$IMAGE-cache,mode=max" \
+            --file server/ember-rooms/docker/Dockerfile .
