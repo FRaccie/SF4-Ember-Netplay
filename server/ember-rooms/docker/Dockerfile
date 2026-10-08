@@ -20,16 +20,38 @@ ARG RUST_VERSION=1.98
 # --- The supervisor and the helper.
 FROM rust:${RUST_VERSION}-${DEBIAN_RELEASE} AS rust
 WORKDIR /src
-# The helper's path dependencies (server/ember, server/ember-short) come along.
-COPY server/ember server/ember
-COPY server/ember-short server/ember-short
-COPY server/ember-rooms server/ember-rooms
-COPY rust/sf4-net rust/sf4-net
+# The dependencies first, in a layer only the manifests and lockfiles decide,
+# so a source change rebuilds our own crates and not the hundreds under
+# them. Cargo wants every path dependency's manifest (server/ember is one
+# workspace; the helper's tests name the bridge and ember-short) and a target
+# in each, so each gets an empty one.
+COPY --parents server/ember/Cargo.toml server/ember/*/Cargo.toml server/ember-short/Cargo.toml \
+    server/ember-rooms/Cargo.toml server/ember-rooms/Cargo.lock \
+    rust/sf4-net/Cargo.toml rust/sf4-net/Cargo.lock rust/sf4-net/build.rs ./
 # The image's own toolchain: rust/sf4-net/rust-toolchain.toml would have
 # rustup fetch the Windows target and lint components the client build needs.
-RUN export RUSTUP_TOOLCHAIN="$(rustup default | cut -d' ' -f1)" \
-    && cd server/ember-rooms && cargo build --release --locked \
-    && cd /src/rust/sf4-net && cargo build --profile server --locked
+# RUST_VERSION here is the base image's, the full version it installed.
+ENV RUSTUP_TOOLCHAIN=${RUST_VERSION}
+# The clean takes the empty crates' own output back out, so the real build
+# never has to tell their sources apart by file time.
+RUN for crate in server/ember/bridge server/ember/notifier server/ember/protocol server/ember-short \
+        server/ember-rooms rust/sf4-net; do \
+        mkdir -p $crate/src && touch $crate/src/lib.rs || exit 1; \
+    done \
+    && mkdir server/ember-rooms/src/bin \
+    && echo 'fn main() {}' | tee server/ember-rooms/src/main.rs server/ember-rooms/src/bin/fake_room_host.rs \
+        > rust/sf4-net/src/main.rs \
+    && cd server/ember-rooms && cargo build --release --locked && cargo clean --release -p ember-rooms \
+    && cd /src/rust/sf4-net && cargo build --profile server --locked \
+    && cargo clean --profile server -p sf4-net -p ember-protocol
+# The helper before the supervisor: its link is the long step, and a change
+# to the supervisor then leaves it alone. Of server/ember it compiles only
+# the protocol crate.
+COPY server/ember/protocol server/ember/protocol
+COPY rust/sf4-net rust/sf4-net
+RUN cd rust/sf4-net && cargo build --profile server --locked
+COPY server/ember-rooms server/ember-rooms
+RUN cd server/ember-rooms && cargo build --release --locked
 
 # --- The room host, with the distribution's header-only spdlog, fmt and json.
 FROM debian:${DEBIAN_RELEASE} AS cpp
@@ -46,10 +68,6 @@ RUN sed -i 's/\r$//' server/roomhost/build-linux.sh \
 
 # --- The service.
 FROM debian:${DEBIAN_RELEASE}-slim
-ARG BUILD_ID
-RUN test -n "$BUILD_ID" || { echo "docker build needs --build-arg BUILD_ID=<sidecar build hash>" >&2; exit 1; } \
-    && echo "$BUILD_ID" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' \
-    || { echo "BUILD_ID must be 1 to 128 letters, digits, dots, dashes or underscores" >&2; exit 1; }
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates tini jq \
     && rm -rf /var/lib/apt/lists/* \
@@ -59,6 +77,10 @@ RUN apt-get update \
         --no-create-home --shell /usr/sbin/nologin ember-rooms \
     && install -d -o ember-rooms -g ember-rooms -m 0700 /var/lib/ember-rooms \
     && install -d -m 0755 /etc/ember-rooms /usr/local/lib/ember-rooms/builds
+ARG BUILD_ID
+RUN test -n "$BUILD_ID" || { echo "docker build needs --build-arg BUILD_ID=<sidecar build hash>" >&2; exit 1; } \
+    && echo "$BUILD_ID" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' \
+    || { echo "BUILD_ID must be 1 to 128 letters, digits, dots, dashes or underscores" >&2; exit 1; }
 COPY --from=rust /src/server/ember-rooms/target/release/ember-rooms /usr/local/lib/ember-rooms/ember-rooms
 COPY --from=rust /src/rust/sf4-net/target/server/sf4-net /usr/local/lib/ember-rooms/builds/${BUILD_ID}/sf4-net
 COPY --from=cpp /out/sf4e-room-host /usr/local/lib/ember-rooms/builds/${BUILD_ID}/sf4e-room-host
