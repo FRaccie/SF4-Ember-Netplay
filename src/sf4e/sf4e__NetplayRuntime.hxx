@@ -321,6 +321,9 @@ void ReleaseFinishedMatch();
 // Tournament play (sf4e__NetplayRuntime__Tournament.cxx).
 void DispatchTournament(const netplay::tournament::Command& command, bool helperReady);
 void TickTournament(bool helperReady);
+// The in-game self-test (sf4e__NetplayRuntime__SelfTest.cxx), once a tick;
+// nothing unless SF4E_SELFTEST names a test.
+void TickSelfTest();
 // Hands a match link from the browser to the interface, which opens its row.
 void OpenMatchLink(const tournament_link::MatchLink& link);
 // `launched`: the link started Ember, so it was just clicked.

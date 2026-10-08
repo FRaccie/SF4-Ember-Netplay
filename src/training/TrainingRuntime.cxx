@@ -49,6 +49,8 @@ int scriptFighter[2] = {-1, -1};
 // frames whose inputs are confirmed. watching is read on the game thread
 // and set from the overlay's.
 std::atomic<bool> watching{false};
+// The in-game self-test's: the lab also runs in an offline Versus battle.
+bool versusForTest = false;
 bool matchShown = false;
 ConfirmedSamples confirmed;
 // A match under a table's Training rule: its shared save and reset. The
@@ -240,8 +242,9 @@ bool ReadOverride(int side, Input& result) {
 }
 void BeforeUpdate(Native* system, bool networkOwned) {
     overriding = false; sampling = false; commitInput = false;
+    const int gameMode = (system->*Native::publicMethods.GetGameMode)();
     const bool available = !networkOwned &&
-        (system->*Native::publicMethods.GetGameMode)() == Dimps::Game::Battle::GAMEMODE_TRAINING &&
+        (gameMode == Dimps::Game::Battle::GAMEMODE_TRAINING || (versusForTest && gameMode == Dimps::Game::Battle::GAMEMODE_VERSUS)) &&
         !(system->*Native::publicMethods.IsLeavingBattle)();
     if (!available) {
         if (session.GetView().available) CloseBattle();
@@ -563,6 +566,7 @@ bool BeforeMatchFrame(Native* system, unsigned& rawOne, unsigned& rawTwo) {
     }
     return true;
 }
+void AllowOfflineVersusForTest(bool allowed) { versusForTest = allowed; }
 void WatchMatches(bool enabled) { watching = enabled; }
 void ObserveMatch(Native* system, int stateFrame, int lastConfirmedInput, unsigned padOne, unsigned padTwo) {
     if (!watching) {

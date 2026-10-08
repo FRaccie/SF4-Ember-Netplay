@@ -2,6 +2,7 @@
 
 #include <windows.h>
 #include <detours/detours.h>
+#include "sf4e__NetplayFacade.hxx"
 #include "spdlog/spdlog.h"
 
 #include "../Dimps/Dimps__Eva.hxx"
@@ -27,6 +28,7 @@ bool fGame::MementoFailure::restore = false;
 void fGame::Install() {
     Battle::Install();
     GameMementoKey::Install();
+    sf4e::NetplayFacade::InstallSelfTest();
 }
 
 void fKey::Install() {

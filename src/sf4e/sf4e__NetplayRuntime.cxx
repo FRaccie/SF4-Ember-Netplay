@@ -657,6 +657,7 @@ void TickRuntime() {
 	DrainCommands(helperReady);
 	DrainRoomEvents();
 	TickTournament(helperReady);
+	TickSelfTest();
 	PersistTerminalOutcome();
 	DrainActionReplies();
 	RetryPendingAbort();
