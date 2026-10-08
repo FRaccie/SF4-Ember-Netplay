@@ -15,18 +15,43 @@ if(WIN32)
         set(SF4E_HELPER_EXECUTABLE "${CMAKE_BINARY_DIR}/sf4-net.exe")
         file(GLOB_RECURSE SF4E_HELPER_RUST_SOURCES CONFIGURE_DEPENDS "${SF4E_HELPER_SOURCE}/src/*.rs"
             "${CMAKE_SOURCE_DIR}/server/ember/protocol/src/*.rs")
+        set(SF4E_HELPER_INPUTS ${SF4E_HELPER_RUST_SOURCES} "${SF4E_HELPER_SOURCE}/Cargo.toml"
+            "${SF4E_HELPER_SOURCE}/Cargo.lock" "${SF4E_HELPER_SOURCE}/rust-toolchain.toml"
+            "${CMAKE_SOURCE_DIR}/server/ember/protocol/Cargo.toml" "${CMAKE_SOURCE_DIR}/server/ember/Cargo.toml"
+            "${SF4E_HELPER_SOURCE}/build.rs" "${SF4E_HELPER_SOURCE}/resource.rc" "${CMAKE_SOURCE_DIR}/src/ui/ember.ico")
+        set(SF4E_HELPER_RUSTFLAGS "-C target-feature=+crt-static")
+        set(SF4E_HELPER_CARGO_ARGS build --locked --release --target x86_64-pc-windows-msvc)
+        set(SF4E_HELPER_CARGO_OUTPUT "${CMAKE_BINARY_DIR}/rust-target/x86_64-pc-windows-msvc/release/sf4-net.exe")
+        # Most branches never touch Rust, and the helper is most of a cold
+        # build. A test or CI build may name a registry to fetch the helper
+        # from when an earlier build made it from these same inputs and flags.
+        # Empty builds it here, which is what a release build must do: its
+        # receipt lists hashes of files it compiled itself.
+        set(SF4E_PREBUILT_REGISTRY "" CACHE STRING
+            "Registry path holding prebuilt parts for test builds, such as harbor.fraccie.be/sf4ember/prebuilt")
+        set(SF4E_HELPER_BUILD ${CMAKE_COMMAND} -E env "CARGO_TARGET_DIR=${CMAKE_BINARY_DIR}/rust-target"
+            "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS=${SF4E_HELPER_RUSTFLAGS}"
+            "${SF4E_CARGO_EXECUTABLE}" ${SF4E_HELPER_CARGO_ARGS})
+        if(SF4E_PREBUILT_REGISTRY)
+            string(REPLACE "${CMAKE_SOURCE_DIR}/" "" SF4E_HELPER_INPUT_LIST "${SF4E_HELPER_INPUTS}")
+            string(REPLACE ";" "\n" SF4E_HELPER_INPUT_LIST "${SF4E_HELPER_INPUT_LIST}")
+            file(WRITE "${CMAKE_BINARY_DIR}/prebuilt/sf4-net.inputs" "${SF4E_HELPER_INPUT_LIST}\n")
+            # PowerShell would read the build command's own options as its
+            # parameters, so the command travels as one value.
+            list(JOIN SF4E_HELPER_BUILD "|" SF4E_HELPER_BUILD_VALUE)
+            list(JOIN SF4E_HELPER_CARGO_ARGS " " SF4E_HELPER_VARIANT)
+            set(SF4E_HELPER_BUILD powershell.exe -NoProfile -ExecutionPolicy Bypass
+                -File "${CMAKE_SOURCE_DIR}/scripts/use-prebuilt.ps1" -Repository "${SF4E_PREBUILT_REGISTRY}/sf4-net"
+                -Output "${SF4E_HELPER_CARGO_OUTPUT}" -SourceRoot "${CMAKE_SOURCE_DIR}"
+                -InputList "${CMAKE_BINARY_DIR}/prebuilt/sf4-net.inputs"
+                -Variant "${SF4E_HELPER_VARIANT} rustflags=${SF4E_HELPER_RUSTFLAGS}"
+                -BuildCommand "${SF4E_HELPER_BUILD_VALUE}")
+        endif()
         add_custom_command(OUTPUT "${SF4E_HELPER_EXECUTABLE}"
-            COMMAND ${CMAKE_COMMAND} -E env "CARGO_TARGET_DIR=${CMAKE_BINARY_DIR}/rust-target"
-                "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS=-C target-feature=+crt-static"
-                "${SF4E_CARGO_EXECUTABLE}" build --locked --release --target x86_64-pc-windows-msvc
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${CMAKE_BINARY_DIR}/rust-target/x86_64-pc-windows-msvc/release/sf4-net.exe"
-                "${SF4E_HELPER_EXECUTABLE}"
+            COMMAND ${SF4E_HELPER_BUILD}
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${SF4E_HELPER_CARGO_OUTPUT}" "${SF4E_HELPER_EXECUTABLE}"
             WORKING_DIRECTORY "${SF4E_HELPER_SOURCE}"
-            DEPENDS ${SF4E_HELPER_RUST_SOURCES} "${SF4E_HELPER_SOURCE}/Cargo.toml"
-                "${SF4E_HELPER_SOURCE}/Cargo.lock" "${SF4E_HELPER_SOURCE}/rust-toolchain.toml"
-                "${CMAKE_SOURCE_DIR}/server/ember/protocol/Cargo.toml" "${CMAKE_SOURCE_DIR}/server/ember/Cargo.toml"
-                "${SF4E_HELPER_SOURCE}/build.rs" "${SF4E_HELPER_SOURCE}/resource.rc" "${CMAKE_SOURCE_DIR}/src/ui/ember.ico"
+            DEPENDS ${SF4E_HELPER_INPUTS}
             VERBATIM COMMENT "Build the pinned x64 Iroh helper")
         add_custom_target(IrohHelper ALL DEPENDS "${SF4E_HELPER_EXECUTABLE}")
         install(PROGRAMS "${SF4E_HELPER_EXECUTABLE}" DESTINATION ".")
@@ -37,6 +62,9 @@ if(WIN32)
             add_test(NAME HelperProcess COMMAND HelperProcessTest "${SF4E_HELPER_EXECUTABLE}")
             set_tests_properties(HelperProcess PROPERTIES TIMEOUT 90)
             sf4e_test_locks(HelperProcess loopback_udp_ports ember_processes)
+            add_test(NAME PrebuiltKeyPowerShell COMMAND powershell.exe -NoProfile -ExecutionPolicy Bypass
+                -File "${CMAKE_SOURCE_DIR}/scripts/test-prebuilt-key.ps1")
+            set_tests_properties(PrebuiltKeyPowerShell PROPERTIES TIMEOUT 60)
             # The helper's own tests belong to the same gate as the C++ tests,
             # so a build receipt with testsPassed covers them (ledger A-015).
             # A separate target dir keeps the release helper from rebuilding.
