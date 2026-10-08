@@ -35,6 +35,8 @@ jobs:
           git checkout --force --detach FETCH_HEAD
       # VCPKG_ROOT comes from the runner's environment. The Discord companion
       # needs the SDK archive, which is not in the repository.
+      # The helper is fetched from the registry when an earlier build made it
+      # from the same Rust sources, which saves most of a cold build.
       - name: Configure
         run: |
           . ./scripts/BuildEnvironment.ps1
@@ -43,8 +45,13 @@ jobs:
           cmake -S . -B build/tests -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_TESTING=ON `
             "-DCMAKE_TOOLCHAIN_FILE=$($tools.VcpkgRoot)/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x86-windows-wchar-filenames -DVCPKG_HOST_TRIPLET=x86-windows-wchar-filenames `
-            -DSF4E_BUILD_IROH_HELPER=ON -DSF4E_BUILD_DISCORD=OFF
+            -DSF4E_BUILD_IROH_HELPER=ON -DSF4E_BUILD_DISCORD=OFF `
+            -DSF4E_PREBUILT_REGISTRY=harbor.fraccie.be/sf4ember/prebuilt
+      # Without the two secrets the build still fetches, and uploads nothing.
       - name: Build
+        env:
+          HARBOR_ROBOT_USER: ${{ secrets.HARBOR_ROBOT_USER }}
+          HARBOR_ROBOT_TOKEN: ${{ secrets.HARBOR_ROBOT_TOKEN }}
         run: |
           . ./scripts/BuildEnvironment.ps1
           Enter-EmberVcEnvironment (Get-EmberToolPaths $PWD '' '').VisualStudioPath
