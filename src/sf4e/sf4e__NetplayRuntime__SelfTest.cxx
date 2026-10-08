@@ -43,12 +43,15 @@ using Dimps::Game::ProgressData;
 constexpr int kSecond = 60;
 enum class Stage { Off, ToMainMenu, ToBattle, Move, Moving, Settled, SavePosition, Dash, Dashing, Reset, Closing, Closed };
 
-// A move the lab plays and what the meter has to show for it: startup,
-// active and recovery cells, -1 where the frame data is only reported.
+// A move the lab plays and its frame data: startup, active and recovery, -1
+// where the test only reports what the meter showed. The numbers on the
+// meter's line have to be the frame data's. Its cells follow the startup
+// number (FrameMeter.hxx: ClassifyMeter), so the recovery has one cell less.
 struct Case { const char* moves; int startup, active, recovery; const char* what; };
 const Case kCases[] = {
 	{"2LP", 3, 2, 7, "Ryu crouching LP"},
-	{"5LP", 3, 3, 6, "Ryu standing LP"},
+	// At the round's starting distance this is the far one.
+	{"5LP", -1, -1, -1, "Ryu far standing LP"},
 	{"2MK", -1, -1, -1, "Ryu crouching MK"},
 	{"5HP", -1, -1, -1, "Ryu standing HP"},
 	{"236LP", -1, -1, -1, "Ryu LP Hadoken"},
@@ -248,11 +251,18 @@ void TickSelfTest() {
 		const Case& expected = kCases[run.at];
 		int startup = 0, active = 0, recovery = 0;
 		Count(view.meter, startup, active, recovery);
-		const std::string shown = std::to_string(startup) + " startup, " + std::to_string(active) + " active, " + std::to_string(recovery) + " recovery";
-		if (expected.startup < 0) Note(std::string(expected.what) + " (" + expected.moves + "): " + shown);
-		else Say(startup == expected.startup && active == expected.active && recovery == expected.recovery, expected.what,
-			shown + (startup == expected.startup && active == expected.active && recovery == expected.recovery ? "" :
+		const auto& move = view.meter.moves[0];
+		const std::string cells = std::to_string(startup) + ", " + std::to_string(active) + " and " + std::to_string(recovery) + " cells";
+		const std::string numbers = "startup " + std::to_string(view.meter.startupFrames[0]) + ", active " + std::to_string(move.active) + ", recovery " + std::to_string(move.recovery);
+		if (expected.startup < 0) Note(std::string(expected.what) + " (" + expected.moves + "): " + numbers + "; " + cells);
+		else {
+			const bool numbersRight = view.meter.startupFrames[0] == expected.startup && move.active == expected.active && move.recovery == expected.recovery;
+			const bool cellsRight = startup == expected.startup && active == expected.active && recovery == expected.recovery - 1;
+			Say(numbersRight, std::string(expected.what) + " numbers", numbers + (numbersRight ? "" :
 				", expected " + std::to_string(expected.startup) + "/" + std::to_string(expected.active) + "/" + std::to_string(expected.recovery)));
+			Say(cellsRight, std::string(expected.what) + " cells", cells + (cellsRight ? "" :
+				", expected " + std::to_string(expected.startup) + ", " + std::to_string(expected.active) + " and " + std::to_string(expected.recovery - 1)));
+		}
 		run.at++;
 		Enter(Stage::Move);
 		break;
