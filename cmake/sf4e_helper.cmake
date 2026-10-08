@@ -25,7 +25,7 @@ if(WIN32)
             WORKING_DIRECTORY "${SF4E_HELPER_SOURCE}"
             DEPENDS ${SF4E_HELPER_RUST_SOURCES} "${SF4E_HELPER_SOURCE}/Cargo.toml"
                 "${SF4E_HELPER_SOURCE}/Cargo.lock" "${SF4E_HELPER_SOURCE}/rust-toolchain.toml"
-                "${CMAKE_SOURCE_DIR}/server/ember/protocol/Cargo.toml"
+                "${CMAKE_SOURCE_DIR}/server/ember/protocol/Cargo.toml" "${CMAKE_SOURCE_DIR}/server/ember/Cargo.toml"
                 "${SF4E_HELPER_SOURCE}/build.rs" "${SF4E_HELPER_SOURCE}/resource.rc" "${CMAKE_SOURCE_DIR}/src/ui/ember.ico"
             VERBATIM COMMENT "Build the pinned x64 Iroh helper")
         add_custom_target(IrohHelper ALL DEPENDS "${SF4E_HELPER_EXECUTABLE}")
