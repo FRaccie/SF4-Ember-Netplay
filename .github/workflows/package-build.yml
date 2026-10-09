@@ -1,0 +1,90 @@
+name: Package build
+# Builds one branch, tag or commit into the tester zip and the setup program
+# with the repository's own scripts (build-current.ps1, package-team.ps1,
+# package-installer.ps1), on a self-hosted Windows machine. Started by hand
+# only, from this file's branch:
+#
+#   gh workflow run package-build.yml --ref fraccie/package-builds -f ref=<branch>
+#
+# The zip, the setup program and their checksums are kept with the run. With
+# publish they also become a prerelease of this repository, which GitHub
+# gives the source archives by itself.
+#
+# A repository opts in by registering a runner labelled "ember" and setting
+# the variable EMBER_WINDOWS_RUNNER to true; without it the job is skipped.
+# The runner needs the Discord SDK archive of cmake/discord-sdk-pin.json at
+# the path below: Discord does not allow it in the repository.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit to build
+        required: true
+        default: release
+      publish:
+        description: Also publish as a prerelease
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: package-build
+jobs:
+  package:
+    if: vars.EMBER_WINDOWS_RUNNER == 'true'
+    runs-on: [self-hosted, Windows, ember]
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      SF4E_DISCORD_SDK_ARCHIVE: C:\ember-ci\DiscordSocialSdk-1.10.19337.zip
+      # Read from the environment, never pasted into a script.
+      BUILD_REF: ${{ inputs.ref }}
+    steps:
+      # The work folder is kept between runs, so the dependencies under
+      # build/current are built once and the build after it is incremental.
+      - name: Check out the commit
+        id: source
+        run: |
+          git init -q .
+          git -c protocol.version=2 fetch --depth=1 "https://github.com/$env:GITHUB_REPOSITORY.git" $env:BUILD_REF
+          if ($LASTEXITCODE) { throw "Cannot fetch $env:BUILD_REF" }
+          git checkout --force --detach FETCH_HEAD
+          $sha = git rev-parse HEAD
+          $label = ($env:BUILD_REF -replace '[^a-zA-Z0-9._-]', '-') + '-' + $sha.Substring(0, 8)
+          "sha=$sha" >> $env:GITHUB_OUTPUT
+          "label=$label" >> $env:GITHUB_OUTPUT
+      # The package scripts refuse a build without this script's passing
+      # test receipt, so the suite always runs.
+      - name: Build and test
+        run: ./scripts/build-current.ps1
+      - name: Package the zip
+        run: |
+          Remove-Item dist -Recurse -Force -ErrorAction Ignore
+          ./scripts/package-team.ps1 -VersionLabel '${{ steps.source.outputs.label }}'
+      - name: Package the setup program
+        run: ./scripts/package-installer.ps1 -PackageDir 'dist/sf4-ember-netplay-${{ steps.source.outputs.label }}' -VersionLabel '${{ steps.source.outputs.label }}'
+      - name: Keep the files with the run
+        uses: actions/upload-artifact@v4
+        with:
+          name: sf4-ember-netplay-${{ steps.source.outputs.label }}
+          path: |
+            dist/*.zip
+            dist/*.exe
+            dist/*.sha256
+          if-no-files-found: error
+          compression-level: 0
+      - name: Publish as a prerelease
+        if: inputs.publish
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ steps.source.outputs.label }}
+          target_commitish: ${{ steps.source.outputs.sha }}
+          name: Test build ${{ steps.source.outputs.label }}
+          prerelease: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/*.zip
+            dist/*.exe
+            dist/*.sha256
