@@ -1,10 +1,14 @@
 name: Package build
 # Builds one branch, tag or commit into the tester zip and the setup program
 # with the repository's own scripts (build-current.ps1, package-team.ps1,
-# package-installer.ps1), on a self-hosted Windows machine. Started by hand
-# only, from this file's branch:
+# package-installer.ps1), on a self-hosted Windows machine. Started by hand,
+# from this file's branch:
 #
 #   gh workflow run package-build.yml --ref fraccie/package-builds -f ref=<branch>
+#
+# A push to this file's branch builds that branch: GitHub only takes a start
+# by hand for a workflow it has run before, and it checks a change to this
+# file.
 #
 # The zip, the setup program and their checksums are kept with the run. With
 # publish they also become a prerelease of this repository, which GitHub
@@ -15,6 +19,8 @@ name: Package build
 # The runner needs the Discord SDK archive of cmake/discord-sdk-pin.json at
 # the path below: Discord does not allow it in the repository.
 on:
+  push:
+    branches: [fraccie/package-builds]
   workflow_dispatch:
     inputs:
       ref:
@@ -40,7 +46,7 @@ jobs:
     env:
       SF4E_DISCORD_SDK_ARCHIVE: C:\ember-ci\DiscordSocialSdk-1.10.19337.zip
       # Read from the environment, never pasted into a script.
-      BUILD_REF: ${{ inputs.ref }}
+      BUILD_REF: ${{ inputs.ref || github.ref_name }}
     steps:
       # The work folder is kept between runs, so the dependencies under
       # build/current are built once and the build after it is incremental.
