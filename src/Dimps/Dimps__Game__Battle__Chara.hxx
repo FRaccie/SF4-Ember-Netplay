@@ -189,6 +189,23 @@ namespace Dimps {
 						char* (*GetBoneLabelByID)(int idx);
 					} __staticMethods;
 
+					// The boxes every fighter always has, 0xA0 bytes each, four
+					// corners first. 0 to 3 stand stacked on the fighter's own
+					// spot and are where a throw connects. From 8 on there is
+					// one for each of the 24 parts of the body, in the order
+					// of the bits of training::OpenParts; which of them can be
+					// hit on a frame is the action's script's to say. Read off
+					// the in-game hitboxes test
+					// (sf4e__NetplayRuntime__SelfTest.cxx). The 2014 SF4 Box
+					// Viewer read the same place.
+					static unsigned char* GetBodyBox(Actor* a, unsigned index);
+					// The boxes of the attack in progress, chained: list 0 makes
+					// the opponent guard, 1 hits, 2 throws. Null when empty.
+					// The byte at +0xAC of a box is 2 while it can touch, and
+					// the dword at +0xA8 points to the next. count: how many.
+					static unsigned char* GetAttackBoxes(Actor* a, unsigned list, unsigned& count);
+					enum { BOX_NEXT = 0xA8, BOX_STATE = 0xAC, BOX_LIVE = 2, BODY_STACK = 0, BODY_STACK_END = 4, BODY_PARTS = 8, BODY_PART_COUNT = 24 };
+
 					static void Locate(HMODULE peRoot);
 					static __publicMethods publicMethods;
 					static __staticMethods staticMethods;

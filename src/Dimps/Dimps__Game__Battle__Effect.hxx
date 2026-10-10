@@ -37,6 +37,17 @@ namespace Dimps {
 						// TODO
 					} __staticMethods;
 
+					// What a fighter has in flight (a fireball, one at a time in
+					// this game): the first of its effect objects, null when it
+					// has none. An effect object
+					// keeps its attack boxes where a fighter does
+					// (Chara::Actor::GetAttackBoxes), the ones that hit in list 3.
+					// The unit holds a manager a side at +8; a manager its first
+					// object at +0x84 and their count at +0x8C. Read off the
+					// in-game hitboxes test's fireball.
+					static void* GetFirstEffect(Unit* u, unsigned side);
+					enum { BOXES_HIT = 3 };
+
 					static void Locate(HMODULE peRoot);
 					static __privateMethods privateMethods;
 					static __publicMethods publicMethods;

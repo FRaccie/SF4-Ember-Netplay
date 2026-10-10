@@ -600,6 +600,7 @@ void Overlay::DrawOverlay(const std::function<void()>& picture) {
         }
         if (ImGui::IsKeyPressed(ImGuiKey_F6, false) && !called) s_trainingControls.Toggle(focus);
         if (ImGui::IsKeyPressed(ImGuiKey_F5, false)) trainingHud = !trainingHud;
+        sf4e::ui::DrawTrainingBoxes(training);
         auto practice = [&](sf4e::training::Action action) {
             sf4e::training::Submit({action, training.generation});
         };
