@@ -11,6 +11,8 @@
 #include "TrainingCommands.hxx"
 #include <atomic>
 #include "../common/FighterCatalog.hxx"
+#include "../Dimps/Dimps__Game__Battle__Camera.hxx"
+#include "../Dimps/Dimps__Game__Battle__Effect.hxx"
 #include "../Dimps/Dimps__Game__Battle__System.hxx"
 #include "../Dimps/Dimps__Game__Battle__Training.hxx"
 #include "../Dimps/Dimps__Pad.hxx"
@@ -449,6 +451,48 @@ std::array<FighterSample, 2> ReadFighters(Native* system, bool files) {
     }
     return fighters;
 }
+// The boxes and the camera as the game holds them now. Game thread, in a fight.
+BoxView ReadBoxes(Native* system) {
+    using Actor = Dimps::Game::Battle::Chara::Actor;
+    using Unit = Dimps::Game::Battle::Chara::Unit;
+    using Camera = Dimps::Game::Battle::Camera::Unit;
+    BoxView result;
+    Unit* unit = (system->*Native::publicMethods.GetCharaUnit)();
+    Camera* camera = (Camera*)(system->*Native::publicMethods.GetUnitByIndex)(Native::U_CAMERA);
+    using Effects = Dimps::Game::Battle::Effect::Unit;
+    Effects* effects = (Effects*)(system->*Native::publicMethods.GetUnitByIndex)(Native::U_EFFECT);
+    if (!unit || !camera) return result;
+    std::memcpy(result.view, Camera::GetViewMatrix(camera), sizeof(result.view));
+    std::memcpy(result.projection, Camera::GetProjectionMatrix(camera), sizeof(result.projection));
+    Box box{};
+    for (unsigned side = 0; side < 2; ++side) {
+        Actor* actor = (unit->*Unit::publicMethods.GetActorByIndex)(side);
+        if (!actor) continue;
+        const auto add = [&](const unsigned char* record, BoxKind kind) { if (ReadBox(record, kind, box)) { box.side = static_cast<std::uint8_t>(side); result.boxes.push_back(box); } };
+        // What the fighter's action leaves open on this frame is its script's to say.
+        const int action = (actor->*Actor::publicMethods.GetActionID)();
+        const auto* script = action >= 0 ? reinterpret_cast<const std::uint8_t*>((actor->*Actor::publicMethods.GetActionScript)(action)) : nullptr;
+        Dimps::Math::FixedPoint at{};
+        (actor->*Actor::publicMethods.GetActionFrame)(&at);
+        const std::uint32_t hit = OpenParts(script, at.integral, OpenToStrike) & BoxedParts;
+        for (unsigned part = 0; part < Actor::BODY_PART_COUNT; ++part) if (hit >> part & 1) add(Actor::GetBodyBox(actor, Actor::BODY_PARTS + part), BoxKind::Hurt);
+        if (OpenParts(script, at.integral, OpenToThrow))
+            for (unsigned part = Actor::BODY_STACK; part < Actor::BODY_STACK_END; ++part) add(Actor::GetBodyBox(actor, part), BoxKind::Body);
+        const auto attack = [&](Actor* from, unsigned list, BoxKind kind) {
+            unsigned count = 0;
+            const unsigned char* record = Actor::GetAttackBoxes(from, list, count);
+            // The chain can close on itself, so the count ends it.
+            for (unsigned n = 0; record && n < (std::min)(count, 32u); ++n, record = *(const unsigned char* const*)(record + Actor::BOX_NEXT))
+                if (record[Actor::BOX_STATE] == Actor::BOX_LIVE) add(record, kind);
+        };
+        attack(actor, 1, BoxKind::Hit);
+        attack(actor, 2, BoxKind::Throw);
+        // What the fighter has in flight, one thing at a time in this game.
+        if (effects) if (void* effect = Effects::GetFirstEffect(effects, side)) attack(static_cast<Actor*>(effect), Effects::BOXES_HIT, BoxKind::Hit);
+    }
+    result.valid = true;
+    return result;
+}
 void AfterUpdate(Native* system) {
     overriding = false;
     // The native integral field wraps at 16 bits. Count only one accepted
@@ -518,6 +562,7 @@ void AfterUpdate(Native* system) {
     sampling = false; following = false;
     std::lock_guard<std::mutex> lock(mutex); published = session.GetView(); published.meter = meter.View();
     if (published.available) published.dummy = ReadDummyState(published.dummy);
+    if (published.available && published.ready) published.boxes = ReadBoxes(system);
     published.exportId = exportId; published.exportedSlot = exportedSlot; published.exported = exported;
     published.leavingIn = leaving.Left(); published.leavingCall = leaving.Call();
     published.acks=acks;
