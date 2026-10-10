@@ -1428,6 +1428,42 @@ msgstr "Позиция и манекен"
 msgid "training.tools.detail"
 msgstr "Сохраняйте и возвращайте позицию, настраивайте манекена и то, что он делает сам."
 
+msgid "training.hud"
+msgstr "HUD"
+
+msgid "training.hud.detail"
+msgstr "Выберите, что счётчик кадров показывает во время боя."
+
+msgid "training.hud.readings"
+msgstr "Данные кадров"
+
+msgid "training.hud.inputs"
+msgstr "Нажатые кнопки"
+
+msgid "training.hud.legend"
+msgstr "Легенда цветов"
+
+msgid "training.hud.shortcuts"
+msgstr "Кнопки быстрых клавиш"
+
+msgid "training.hud.bars"
+msgstr "Полосы кадров"
+
+msgid "training.hud.counts"
+msgstr "Число кадров"
+
+msgid "training.hud.state"
+msgstr "Состояние счётчика"
+
+msgid "training.hud.hints"
+msgstr "Подсказки клавиш"
+
+msgid "training.hud.status"
+msgstr "Состояние записи"
+
+msgid "training.hud.part_detail"
+msgstr "Влево и Вправо включают или выключают эту часть. F5 скрывает весь HUD."
+
 msgid "training.match.checkpoint_disabled"
 msgstr "Shared save/reset is disabled during rollback matches in nightly."
 

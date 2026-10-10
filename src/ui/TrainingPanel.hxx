@@ -25,6 +25,21 @@ bool TrainingHotkeyBound(int fromF1);
 std::string TrainingKeyHints();
 // What the last position command did, while it is news; empty after a few seconds.
 std::string TrainingNotice(bool& failed);
+// Every part of the HUD is the player's to turn off (F6, HUD), kept in
+// training.json; F5 hides the whole HUD. readings: the frame data line.
+// inputs: the pressed buttons. counts: each run's length on the bars. state:
+// what the meter is doing. shortcuts: the chips. hints: the keys named beside
+// them. status: the strip a recording or a playback adds.
+struct TrainingHudParts { bool readings = true, inputs = true, bars = true, counts = true, legend = true, state = true, shortcuts = true, hints = true, status = true; };
+// One row a part on the HUD page, and its name in training.json.
+struct TrainingHudPart { const char* id; const char* label; bool TrainingHudParts::* shown; };
+constexpr TrainingHudPart TrainingHudPartList[] = {
+    {"readings", "training.hud.readings", &TrainingHudParts::readings}, {"inputs", "training.hud.inputs", &TrainingHudParts::inputs},
+    {"bars", "training.hud.bars", &TrainingHudParts::bars}, {"counts", "training.hud.counts", &TrainingHudParts::counts},
+    {"legend", "training.hud.legend", &TrainingHudParts::legend}, {"state", "training.hud.state", &TrainingHudParts::state},
+    {"shortcuts", "training.hud.shortcuts", &TrainingHudParts::shortcuts}, {"hints", "training.hud.hints", &TrainingHudParts::hints},
+    {"status", "training.hud.status", &TrainingHudParts::status}};
+const TrainingHudParts& TrainingHudShown();
 MenuNavigation& TrainingNavigation();
 // Passive, except for its chips: open the controls, replay the selected slot,
 // stop playback. pointer: the pointer is over the chips, so the overlay takes

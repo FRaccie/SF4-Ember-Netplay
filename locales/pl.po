@@ -1428,6 +1428,42 @@ msgstr "Pozycja i manekin"
 msgid "training.tools.detail"
 msgstr "Zapisz i przywróć pozycję, ustaw manekina i to, co robi sam."
 
+msgid "training.hud"
+msgstr "HUD"
+
+msgid "training.hud.detail"
+msgstr "Wybierz, co miernik klatek pokazuje podczas walki."
+
+msgid "training.hud.readings"
+msgstr "Dane klatek"
+
+msgid "training.hud.inputs"
+msgstr "Wciśnięte przyciski"
+
+msgid "training.hud.legend"
+msgstr "Legenda kolorów"
+
+msgid "training.hud.shortcuts"
+msgstr "Przyciski skrótów"
+
+msgid "training.hud.bars"
+msgstr "Paski klatek"
+
+msgid "training.hud.counts"
+msgstr "Liczby klatek"
+
+msgid "training.hud.state"
+msgstr "Stan miernika"
+
+msgid "training.hud.hints"
+msgstr "Podpowiedzi klawiszy"
+
+msgid "training.hud.status"
+msgstr "Stan nagrywania"
+
+msgid "training.hud.part_detail"
+msgstr "Lewo i Prawo włączają lub wyłączają tę część. F5 ukrywa cały HUD."
+
 msgid "training.match.checkpoint_disabled"
 msgstr "Shared save/reset is disabled during rollback matches in nightly."
 

@@ -1428,6 +1428,42 @@ msgstr "위치와 더미"
 msgid "training.tools.detail"
 msgstr "위치를 저장하고 되돌리며, 더미와 더미의 반격을 설정합니다."
 
+msgid "training.hud"
+msgstr "HUD"
+
+msgid "training.hud.detail"
+msgstr "대전 중 프레임 미터에 표시할 내용을 고릅니다."
+
+msgid "training.hud.readings"
+msgstr "프레임 데이터"
+
+msgid "training.hud.inputs"
+msgstr "누른 버튼"
+
+msgid "training.hud.legend"
+msgstr "색상 범례"
+
+msgid "training.hud.shortcuts"
+msgstr "단축키 버튼"
+
+msgid "training.hud.bars"
+msgstr "프레임 막대"
+
+msgid "training.hud.counts"
+msgstr "프레임 수"
+
+msgid "training.hud.state"
+msgstr "미터 상태"
+
+msgid "training.hud.hints"
+msgstr "키 안내"
+
+msgid "training.hud.status"
+msgstr "녹화 상태"
+
+msgid "training.hud.part_detail"
+msgstr "좌우로 이 항목을 켜거나 끕니다. F5로 HUD 전체를 숨깁니다."
+
 msgid "training.match.checkpoint_disabled"
 msgstr "Shared save/reset is disabled during rollback matches in nightly."
 

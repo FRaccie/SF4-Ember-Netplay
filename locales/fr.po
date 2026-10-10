@@ -1428,6 +1428,42 @@ msgstr "Position et mannequin"
 msgid "training.tools.detail"
 msgstr "Enregistrez et rétablissez la position, réglez le mannequin et ce qu'il fait de lui-même."
 
+msgid "training.hud"
+msgstr "HUD"
+
+msgid "training.hud.detail"
+msgstr "Choisissez ce que le compteur d'images affiche pendant le combat."
+
+msgid "training.hud.readings"
+msgstr "Données d'images"
+
+msgid "training.hud.inputs"
+msgstr "Touches pressées"
+
+msgid "training.hud.legend"
+msgstr "Légende des couleurs"
+
+msgid "training.hud.shortcuts"
+msgstr "Boutons de raccourci"
+
+msgid "training.hud.bars"
+msgstr "Barres d'images"
+
+msgid "training.hud.counts"
+msgstr "Nombres d'images"
+
+msgid "training.hud.state"
+msgstr "État du compteur"
+
+msgid "training.hud.hints"
+msgstr "Rappels des touches"
+
+msgid "training.hud.status"
+msgstr "État d'enregistrement"
+
+msgid "training.hud.part_detail"
+msgstr "Gauche et Droite activent ou désactivent cet élément. F5 masque tout le HUD."
+
 msgid "training.match.checkpoint_disabled"
 msgstr "Shared save/reset is disabled during rollback matches in nightly."
 

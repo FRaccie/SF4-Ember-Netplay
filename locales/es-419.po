@@ -1543,6 +1543,42 @@ msgstr "Posición y muñeco"
 msgid "training.tools.detail"
 msgstr "Guarda y restablece la posición, ajusta el muñeco y lo que hace por sí solo."
 
+msgid "training.hud"
+msgstr "HUD"
+
+msgid "training.hud.detail"
+msgstr "Elige qué muestra el medidor de frames durante la pelea."
+
+msgid "training.hud.readings"
+msgstr "Datos de frames"
+
+msgid "training.hud.inputs"
+msgstr "Botones presionados"
+
+msgid "training.hud.legend"
+msgstr "Leyenda de colores"
+
+msgid "training.hud.shortcuts"
+msgstr "Botones de atajo"
+
+msgid "training.hud.bars"
+msgstr "Barras de frames"
+
+msgid "training.hud.counts"
+msgstr "Número de frames"
+
+msgid "training.hud.state"
+msgstr "Estado del medidor"
+
+msgid "training.hud.hints"
+msgstr "Recordatorio de teclas"
+
+msgid "training.hud.status"
+msgstr "Estado de grabación"
+
+msgid "training.hud.part_detail"
+msgstr "Izquierda y Derecha activan o desactivan esta parte. F5 oculta todo el HUD."
+
 msgid "training.match.checkpoint_disabled"
 msgstr "Shared save/reset is disabled during rollback matches in nightly."
 

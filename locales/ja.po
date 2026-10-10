@@ -1428,6 +1428,42 @@ msgstr "位置とダミー"
 msgid "training.tools.detail"
 msgstr "位置を保存して戻し、ダミーとその反撃を設定します。"
 
+msgid "training.hud"
+msgstr "HUD"
+
+msgid "training.hud.detail"
+msgstr "対戦中にフレームメーターが表示する内容を選びます。"
+
+msgid "training.hud.readings"
+msgstr "フレームデータ"
+
+msgid "training.hud.inputs"
+msgstr "押したボタン"
+
+msgid "training.hud.legend"
+msgstr "色の凡例"
+
+msgid "training.hud.shortcuts"
+msgstr "ショートカットボタン"
+
+msgid "training.hud.bars"
+msgstr "フレームバー"
+
+msgid "training.hud.counts"
+msgstr "フレーム数"
+
+msgid "training.hud.state"
+msgstr "メーターの状態"
+
+msgid "training.hud.hints"
+msgstr "キーの案内"
+
+msgid "training.hud.status"
+msgstr "記録の状態"
+
+msgid "training.hud.part_detail"
+msgstr "左右でこの項目のオン・オフを切り替えます。F5 で HUD 全体を隠します。"
+
 msgid "training.match.checkpoint_disabled"
 msgstr "Shared save/reset is disabled during rollback matches in nightly."
 

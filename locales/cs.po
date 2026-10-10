@@ -1428,6 +1428,42 @@ msgstr "Pozice a figurína"
 msgid "training.tools.detail"
 msgstr "Uložte a obnovte pozici, nastavte figurínu a to, co dělá sama."
 
+msgid "training.hud"
+msgstr "HUD"
+
+msgid "training.hud.detail"
+msgstr "Vyberte, co měřič snímků ukazuje během souboje."
+
+msgid "training.hud.readings"
+msgstr "Data snímků"
+
+msgid "training.hud.inputs"
+msgstr "Stisknutá tlačítka"
+
+msgid "training.hud.legend"
+msgstr "Legenda barev"
+
+msgid "training.hud.shortcuts"
+msgstr "Tlačítka zkratek"
+
+msgid "training.hud.bars"
+msgstr "Pruhy snímků"
+
+msgid "training.hud.counts"
+msgstr "Počty snímků"
+
+msgid "training.hud.state"
+msgstr "Stav měřiče"
+
+msgid "training.hud.hints"
+msgstr "Nápověda kláves"
+
+msgid "training.hud.status"
+msgstr "Stav nahrávání"
+
+msgid "training.hud.part_detail"
+msgstr "Vlevo a Vpravo tuto část zapnou nebo vypnou. F5 skryje celý HUD."
+
 msgid "training.match.checkpoint_disabled"
 msgstr "Shared save/reset is disabled during rollback matches in nightly."
 

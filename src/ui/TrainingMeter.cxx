@@ -46,6 +46,13 @@ std::string Unavailable(const char* label, MeasurementUnavailable reason) {
     }
     return loc::Tf("training.unavailable", label, loc::T(reasonId));
 }
+// The passive HUD follows the game window, not the menu or DPI scale, so it
+// never becomes a large panel over the fight: full size at 1080p, down to the
+// smallest text that still reads in a small or narrow window.
+float HudScale() {
+    const auto* vp = ImGui::GetMainViewport();
+    return (std::max)(.65f, (std::min)(1.5f, (std::min)(vp->Size.y / 1080.f, vp->Size.x / 1440.f)));
+}
 // Text with a dark edge, to read on any fill.
 void Edged(ImDrawList* draw, float size, ImVec2 at, ImU32 colour, const char* text) {
     for (const ImVec2 offset : {ImVec2(-1, 0), ImVec2(1, 0), ImVec2(0, -1), ImVec2(0, 1)})
@@ -89,42 +96,44 @@ std::vector<Reading> Readings(const MeterView& meter, int side) {
 // each fighter's last move as startup, active and recovery frames and what it
 // was worth on hit or block; under it one bar a fighter, a cell a frame, each
 // run of a state carrying its length.
-void Meter(const MeterView& meter, float hudScale) {
+void Meter(const MeterView& meter, float hudScale, const TrainingHudParts& parts) {
     const float full = ImGui::GetContentRegionAvail().x, half = full / 2;
     auto* draw = ImGui::GetWindowDrawList();
     const ImVec2 top = ImGui::GetCursorScreenPos();
     // The game's own trim: a bar that runs from orange into yellow.
     draw->AddRectFilledMultiColor(ImVec2(top.x, top.y - 4 * hudScale), ImVec2(top.x + full, top.y - 2 * hudScale),
         palette::Ember, IM_COL32(255, 214, 72, 255), IM_COL32(255, 214, 72, 255), palette::Ember);
-    ImGui::SetWindowFontScale(hudScale / Scale());
-    const float line = ImGui::GetTextLineHeight(), small = line * .72f, gap = 8 * hudScale;
-    for (int side = 0; side < 2; ++side) {
-        const auto readings = Readings(meter, side);
-        const char tag[3] = {'P', static_cast<char>('1' + side), 0};
-        // Labels where there is room for them, numbers alone where there is not.
-        float labelled = ImGui::CalcTextSize(tag).x + gap;
-        for (const auto& reading : readings) labelled += ImGui::GetFont()->CalcTextSizeA(small, FLT_MAX, 0, reading.label.c_str()).x + 4 * hudScale + ImGui::CalcTextSize(reading.value.c_str()).x + gap;
-        const bool labels = labelled <= half;
-        float x = top.x + side * half;
-        Edged(draw, line, ImVec2(x, top.y), side ? IM_COL32(120, 190, 255, 255) : IM_COL32(255, 120, 110, 255), tag);
-        x += ImGui::CalcTextSize(tag).x + gap;
-        for (std::size_t i = 0; i < readings.size(); ++i) {
-            const auto& reading = readings[i];
-            // The last reading always names itself: hit, block or whiff is the news.
-            if (labels || i + 1 == readings.size()) {
-                draw->AddText(ImGui::GetFont(), small, ImVec2(x, top.y + line - small - 1), palette::Ember, reading.label.c_str());
-                x += ImGui::GetFont()->CalcTextSizeA(small, FLT_MAX, 0, reading.label.c_str()).x + 4 * hudScale;
-            } else {
-                draw->AddRectFilled(ImVec2(x, top.y + line * .25f), ImVec2(x + 3 * hudScale, top.y + line * .85f), reading.colour);
-                x += 5 * hudScale;
+    if (parts.readings) {
+        ImGui::SetWindowFontScale(.9f * hudScale / Scale());
+        const float line = ImGui::GetTextLineHeight(), small = line * .72f, gap = 8 * hudScale;
+        for (int side = 0; side < 2; ++side) {
+            const auto readings = Readings(meter, side);
+            const char tag[3] = {'P', static_cast<char>('1' + side), 0};
+            // Labels where there is room for them, numbers alone where there is not.
+            float labelled = ImGui::CalcTextSize(tag).x + gap;
+            for (const auto& reading : readings) labelled += ImGui::GetFont()->CalcTextSizeA(small, FLT_MAX, 0, reading.label.c_str()).x + 4 * hudScale + ImGui::CalcTextSize(reading.value.c_str()).x + gap;
+            const bool labels = labelled <= half;
+            float x = top.x + side * half;
+            Edged(draw, line, ImVec2(x, top.y), side ? IM_COL32(120, 190, 255, 255) : IM_COL32(255, 120, 110, 255), tag);
+            x += ImGui::CalcTextSize(tag).x + gap;
+            for (std::size_t i = 0; i < readings.size(); ++i) {
+                const auto& reading = readings[i];
+                // The last reading always names itself: hit, block or whiff is the news.
+                if (labels || i + 1 == readings.size()) {
+                    draw->AddText(ImGui::GetFont(), small, ImVec2(x, top.y + line - small - 1), palette::Ember, reading.label.c_str());
+                    x += ImGui::GetFont()->CalcTextSizeA(small, FLT_MAX, 0, reading.label.c_str()).x + 4 * hudScale;
+                } else {
+                    draw->AddRectFilled(ImVec2(x, top.y + line * .25f), ImVec2(x + 3 * hudScale, top.y + line * .85f), reading.colour);
+                    x += 5 * hudScale;
+                }
+                Edged(draw, line, ImVec2(x, top.y), i + 1 == readings.size() || reading.toned ? reading.colour : IM_COL32(255, 255, 255, 255), reading.value.c_str());
+                x += ImGui::CalcTextSize(reading.value.c_str()).x + gap;
             }
-            Edged(draw, line, ImVec2(x, top.y), i + 1 == readings.size() || reading.toned ? reading.colour : IM_COL32(255, 255, 255, 255), reading.value.c_str());
-            x += ImGui::CalcTextSize(reading.value.c_str()).x + gap;
         }
+        ImGui::Dummy(ImVec2(full, line));
     }
-    ImGui::Dummy(ImVec2(full, line));
     ImGui::SetWindowFontScale(.8f * hudScale / Scale());
-    const float height = 16 * hudScale, slant = height * .35f;
+    const float height = 15 * hudScale, slant = height * .35f;
     const float width = (std::max)(120.f, full - slant), cell = width / 120, digits = height * .82f;
     // A held meter scrolls back through the exchange with the mouse wheel over
     // the bars, ten frames a notch; it shows the newest frames again once it runs.
@@ -158,8 +167,9 @@ void Meter(const MeterView& meter, float hudScale) {
     // their bar, Player 2's under theirs, so the two bars stay together. A
     // direction shows as it changes and a button as it goes down, at the frame
     // it did; presses too close to draw apart are moved right, in order.
-    const float lane = 13 * hudScale;
+    const float lane = 11 * hudScale;
     const auto inputs = [&](int side) {
+        if (!parts.inputs) return;
         const ImVec2 origin = ImGui::GetCursorScreenPos();
         const int shown = (std::min)(shownMost, kept - first);
         float cursor = origin.x;
@@ -193,6 +203,7 @@ void Meter(const MeterView& meter, float hudScale) {
     };
     for (int side = 0; side < 2; ++side) {
         if (side == 0) inputs(0);
+        if (!parts.bars) { if (side == 1) inputs(1); continue; }
         const ImVec2 origin = ImGui::GetCursorScreenPos();
         // A cell leans as the game's gauges do: its top edge sits further right.
         const auto quad = [&](float from, float to, ImU32 colour) {
@@ -203,7 +214,7 @@ void Meter(const MeterView& meter, float hudScale) {
         const int count = (std::min)(shownMost, kept - first);
         // A run's length, centred on it when it fits.
         const auto label = [&](int from, int to, MeterKind kind) {
-            if (kind == MeterKind::Neutral || to - from < 2) return;
+            if (!parts.counts || kind == MeterKind::Neutral || to - from < 2) return;
             const auto text = std::to_string(to - from);
             const ImVec2 extent = ImGui::GetFont()->CalcTextSizeA(digits, FLT_MAX, 0, text.c_str());
             if (extent.x + 2 > (to - from) * cell) return;
@@ -248,7 +259,7 @@ void Meter(const MeterView& meter, float hudScale) {
     }
 }
 // What the colours mean and what the meter is doing, where the reason line has nothing to say.
-void MeterLegend(const MeterView& meter, float hudScale) {
+void MeterLegend(const MeterView& meter, float hudScale, const TrainingHudParts& parts) {
     const float h = ImGui::GetTextLineHeight(), left = ImGui::GetCursorPosX(), full = ImGui::GetContentRegionAvail().x;
     const std::pair<MeterKind, const char*> entries[] = {{MeterKind::Startup, "training.startup"}, {MeterKind::Active, "training.meter.active"},
         {MeterKind::Recovery, "training.meter.recovery"}, {MeterKind::Hit, "training.meter.hit"}, {MeterKind::Guard, "training.meter.block"},
@@ -259,10 +270,16 @@ void MeterLegend(const MeterView& meter, float hudScale) {
     for (const auto& frame : meter.frames) for (const auto& fighter : frame.fighters) shown[static_cast<int>(ClassifyMeter(fighter))] = true;
     bool following = false;
     for (const auto& entry : entries) {
+        if (!parts.legend) break;
         if (entry.first != MeterKind::Startup && entry.first != MeterKind::Active && entry.first != MeterKind::Recovery &&
             entry.first != MeterKind::Hit && entry.first != MeterKind::Guard && entry.first != MeterKind::Down && entry.first != MeterKind::Rise && entry.first != MeterKind::Meaty &&
             !shown[static_cast<int>(entry.first)]) continue;
-        if (following) ImGui::SameLine(0, 10 * hudScale);
+        // A narrow meter names as many as fit, in this order.
+        const float entryWidth = h * .6f + 4 * hudScale + ImGui::CalcTextSize(loc::T(entry.second)).x;
+        if (following) {
+            ImGui::SameLine(0, 10 * hudScale);
+            if (ImGui::GetCursorPosX() + entryWidth > left + full) { ImGui::NewLine(); return; }
+        }
         following = true;
         const ImVec2 at = ImGui::GetCursorScreenPos();
         ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(at.x, at.y + h * .2f), ImVec2(at.x + h * .6f, at.y + h * .8f), KindColor(entry.first));
@@ -271,7 +288,9 @@ void MeterLegend(const MeterView& meter, float hudScale) {
     }
     const auto state = loc::Tf("training.frame_advantage",
         loc::T(meter.advantage.pending ? "training.measuring" : meter.advantage.knockdown ? "training.wakeup" : meter.frozen ? "training.held" : "training.live"));
+    if (!parts.state) return;
     const float stateAt = left + full - ImGui::CalcTextSize(state.c_str()).x;
+    if (!following) { ImGui::SetCursorPosX(stateAt); ImGui::TextDisabled("%s", state.c_str()); return; }
     ImGui::SameLine(0, 10 * hudScale);
     if (ImGui::GetCursorPosX() <= stateAt) { ImGui::SameLine(stateAt); ImGui::TextDisabled("%s", state.c_str()); }
     else ImGui::NewLine();
@@ -303,25 +322,59 @@ void ChallengerBanner(const training::View& view) {
         draw->AddText(ImGui::GetFont(), size, ImVec2(at.x + offset.x, at.y + offset.y), IM_COL32(10, 10, 10, 255), text);
     draw->AddText(ImGui::GetFont(), size, at, colour, text);
 }
+// What the lab is doing while it records or plays a slot, over the meter: a
+// red dot or a green arrow, the slot, how far along it is and the key that
+// stops it. Not drawn while idle, or while the dummy plays its typed reply.
+static void ModeStrip(const training::View& view, float hudScale) {
+    const bool recording = view.mode == training::Mode::Recording;
+    const float h = ImGui::GetTextLineHeight(), full = ImGui::GetContentRegionAvail().x, left = ImGui::GetCursorPosX();
+    const ImU32 colour = recording ? IM_COL32(255, 72, 72, 255) : IM_COL32(96, 220, 140, 255);
+    auto* draw = ImGui::GetWindowDrawList();
+    const ImVec2 at = ImGui::GetCursorScreenPos();
+    // The dot blinks once a second, as a recorder's does.
+    if (recording) { if (static_cast<int>(ImGui::GetTime() * 2) % 2 == 0) draw->AddCircleFilled(ImVec2(at.x + h * .4f, at.y + h * .5f), h * .3f, colour); }
+    else draw->AddTriangleFilled(ImVec2(at.x + h * .15f, at.y + h * .2f), ImVec2(at.x + h * .15f, at.y + h * .8f), ImVec2(at.x + h * .7f, at.y + h * .5f), colour);
+    ImGui::Dummy(ImVec2(h * .8f, h)); ImGui::SameLine(0, 4 * hudScale);
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(colour), "%s", loc::T(recording ? "training.record" : "training.play"));
+    ImGui::SameLine(0, 10 * hudScale);
+    const int total = recording ? training::MaxFrames : view.lengths[view.selected];
+    ImGui::Text("%s  %d / %d f", loc::Tf("training.slot", view.selected + 1).c_str(), view.cursor, total);
+    const std::string stop = std::string(recording ? "F7 " : "F8 ") + loc::T("training.stop");
+    ImGui::SameLine(left + full - ImGui::CalcTextSize(stop.c_str()).x);
+    ImGui::TextDisabled("%s", stop.c_str());
+    // How much of the slot is used, or played.
+    const ImVec2 bar = ImGui::GetCursorScreenPos();
+    const float done = total > 0 ? (std::min)(1.f, static_cast<float>(view.cursor) / total) : 0;
+    draw->AddRectFilled(bar, ImVec2(bar.x + full, bar.y + 2 * hudScale), IM_COL32(48, 50, 54, 200));
+    draw->AddRectFilled(bar, ImVec2(bar.x + full * done, bar.y + 2 * hudScale), colour);
+    ImGui::Dummy(ImVec2(full, 5 * hudScale));
+}
 // The meter's own window, centred, its bottom edge at hudBottom. Takes no
 // input. Returns its top left corner.
-static ImVec2 MeterWindow(const training::MeterView& meter, float hudScale, float width, float hudBottom) {
+static ImVec2 MeterWindow(const training::View& view, float hudScale, float width, float hudBottom) {
+    const auto& meter = view.meter;
+    const auto& parts = TrainingHudShown();
+    const bool strip = parts.status && view.mode != training::Mode::Idle && view.selected < training::SlotCount;
     const auto* vp = ImGui::GetMainViewport();
     ImVec2 hudTop(vp->Pos.x + (vp->Size.x - width) / 2, hudBottom);
+    // With every part off there is no window to draw.
+    if (!strip && !parts.readings && !parts.inputs && !parts.bars && !parts.legend && !parts.state) return hudTop;
     ImGui::SetNextWindowPos(ImVec2(vp->Pos.x + vp->Size.x / 2, hudBottom), ImGuiCond_Always, ImVec2(.5f, 1));
     ImGui::SetNextWindowSize(ImVec2(width, 0));
     ImGui::SetNextWindowBgAlpha(.42f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8 * hudScale, 6 * hudScale));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4 * hudScale, 3 * hudScale));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8 * hudScale, 5 * hudScale));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4 * hudScale, 2 * hudScale));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
     if (ImGui::Begin("Training frame meter", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing)) {
         ImGui::SetWindowFontScale(.8f * hudScale / Scale());
-        Meter(meter, hudScale);
+        if (strip) ModeStrip(view, hudScale);
+        Meter(meter, hudScale, parts);
         // Always one line, so the HUD does not jump as measurements come and go.
         const auto reason=MeasurementReason(meter);
         // The legend is the more useful line; a reason shows only while a reading is being waited for.
-        if(reason.empty()||!meter.advantage.pending) MeterLegend(meter,hudScale);
+        if(!parts.legend&&!parts.state) {}
+        else if(reason.empty()||!meter.advantage.pending) MeterLegend(meter,hudScale,parts);
         else ImGui::TextDisabled("%s", FitLabel(reason,ImGui::GetContentRegionAvail().x).c_str());
         hudTop = ImGui::GetWindowPos();
         ImGui::SetWindowFontScale(1.f);
@@ -334,13 +387,13 @@ static ImVec2 MeterWindow(const training::MeterView& meter, float hudScale, floa
 void DrawMatchMeter(const training::View& view) {
     if (!view.watching) return;
     const auto* vp = ImGui::GetMainViewport();
-    const float hudScale = (std::max)(1.f, (std::min)(1.5f, vp->Size.y / 900.f));
-    MeterWindow(view.meter, hudScale, (std::min)(900 * hudScale, vp->Size.x * .75f), vp->Pos.y + vp->Size.y * TrainingHudBottom);
+    const float hudScale = HudScale();
+    MeterWindow(view, hudScale, (std::min)(900 * hudScale, vp->Size.x * .75f), vp->Pos.y + vp->Size.y * TrainingHudBottom);
 }
 // A Training table's match HUD explains why shared position controls are unavailable.
 unsigned MatchPracticeKeys(bool) {
     const auto* vp=ImGui::GetMainViewport();
-    const float hudScale=(std::max)(1.f,(std::min)(1.5f,vp->Size.y/900.f));
+    const float hudScale=HudScale();
     ImGui::SetNextWindowPos(ImVec2(vp->Pos.x+vp->Size.x/2,vp->Pos.y+vp->Size.y*TrainingHudBottom+4*hudScale),ImGuiCond_Always,ImVec2(.5f,0));
     ImGui::SetNextWindowBgAlpha(.42f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(4*hudScale,3*hudScale));
@@ -359,21 +412,27 @@ TrainingHudInput DrawTrainingHud(const training::View& view) {
     if (!view.available) return {};
     ChallengerBanner(view);
     const auto* vp = ImGui::GetMainViewport();
-    // Size the passive HUD to the game viewport; menu/DPI scaling should not
-    // turn it into a large panel over the fight.
-    const float hudScale = (std::max)(1.f, (std::min)(1.5f, vp->Size.y / 900.f));
+    const float hudScale = HudScale();
     // Wide, so a frame is a cell the eye can pick out.
     const float width = (std::min)(900 * hudScale, vp->Size.x * .75f);
     // The game's super meters and their SUPER! banners start about 17% above
     // the bottom edge and scale with the height, so the meter sits just above them.
     const float hudBottom = vp->Pos.y + vp->Size.y * TrainingHudBottom;
-    const ImVec2 hudTop = MeterWindow(view.meter, hudScale, width, hudBottom);
+    const ImVec2 hudTop = MeterWindow(view, hudScale, width, hudBottom);
     // The one input this HUD takes: a chip that opens the controls for a
     // mouse, as F6 does from the keyboard. It captures the mouse only while
     // the pointer is over it, so the passive meter above never does. It
     // hangs under the meter, between the game's two super gauges, so the
     // middle of the screen stays the fight's.
     TrainingHudInput input;
+    // The chips and the key hints can be turned off, and a recording shows
+    // its own key in the strip; what a position key just did is still told.
+    bool failed = false;
+    const auto notice = TrainingNotice(failed);
+    const auto& parts = TrainingHudShown();
+    const bool busy = parts.status && view.mode == training::Mode::Recording;
+    const bool chips = parts.shortcuts && !busy, hints = parts.hints && !busy;
+    if (!chips && !hints && notice.empty()) return input;
     ImGui::SetNextWindowPos(ImVec2(hudTop.x, hudBottom + 4 * hudScale), ImGuiCond_Always, ImVec2(0, 0));
     ImGui::SetNextWindowBgAlpha(.42f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4 * hudScale, 3 * hudScale));
@@ -381,24 +440,27 @@ TrainingHudInput DrawTrainingHud(const training::View& view) {
     if (ImGui::Begin("Training shortcuts", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
         ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav)) {
         ImGui::SetWindowFontScale(.8f * hudScale / Scale());
-        input.open = ImGui::SmallButton(loc::T("training.open_chip"));
-        ReportMenuCard("training-open", ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
-        // F8 as a chip: play the selected slot again, or stop it.
-        const bool playing = view.mode == training::Mode::Playback;
-        if (playing || view.lengths[view.selected] > 0) {
-            ImGui::SameLine();
-            if (playing) input.stop = ImGui::SmallButton(loc::T("training.stop_chip"));
-            else input.replay = ImGui::SmallButton(loc::Tf("training.replay_chip", view.selected + 1).c_str());
+        if (chips) {
+            input.open = ImGui::SmallButton(loc::T("training.open_chip"));
+            ReportMenuCard("training-open", ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+            // F8 as a chip: play the selected slot again, or stop it.
+            const bool playing = view.mode == training::Mode::Playback;
+            if (playing || view.lengths[view.selected] > 0) {
+                ImGui::SameLine();
+                if (playing) input.stop = ImGui::SmallButton(loc::T("training.stop_chip"));
+                else input.replay = ImGui::SmallButton(loc::Tf("training.replay_chip", view.selected + 1).c_str());
+            }
         }
-        ImGui::SameLine(); ImGui::TextDisabled("%s", loc::T("training.hide_hint"));
-        // The position keys where the chips leave room for them inside the HUD's width.
-        const auto keys = TrainingKeyHints();
-        ImGui::SameLine();
-        if (!keys.empty() && ImGui::GetCursorPosX() + ImGui::CalcTextSize(keys.c_str()).x <= width) ImGui::TextDisabled("%s", keys.c_str());
-        else ImGui::NewLine();
+        if (hints) {
+            if (chips) ImGui::SameLine();
+            ImGui::TextDisabled("%s", loc::T("training.hide_hint"));
+            // The position keys where the chips leave room for them inside the HUD's width.
+            const auto keys = TrainingKeyHints();
+            ImGui::SameLine();
+            if (!keys.empty() && ImGui::GetCursorPosX() + ImGui::CalcTextSize(keys.c_str()).x <= width) ImGui::TextDisabled("%s", keys.c_str());
+            else ImGui::NewLine();
+        }
         // What the last position key did, for the few seconds it is news.
-        bool failed = false;
-        const auto notice = TrainingNotice(failed);
         if (!notice.empty()) {
             const auto shown = FitLabel(notice, width - 8 * hudScale);
             if (failed) ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(IM_COL32(255, 121, 129, 255)), "%s", shown.c_str());

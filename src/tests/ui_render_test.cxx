@@ -476,10 +476,13 @@ int main(int argc, char** argv) {
         // SF4E_UI_RENDER_QUICK=1 is for a quick look at a change: English at 1920x1080 only.
         const char* quickRun = std::getenv("SF4E_UI_RENDER_QUICK");
         const std::string quickMode = quickRun ? quickRun : "";
-        const bool quick = quickMode == "1" || quickMode == "narrow";
+        const bool hudOnly = quickMode == "hud";
+        const bool quick = quickMode == "1" || quickMode == "narrow" || hudOnly;
+        // SF4E_UI_RENDER_QUICK=hud draws only the training HUD, at window sizes from 640x480 up.
         // SF4E_UI_RENDER_QUICK=narrow is the same at 640x720, and SF4E_UI_RENDER_SHOTS=text writes only the shots whose name has it.
         const char* shotFilter = std::getenv("SF4E_UI_RENDER_SHOTS");
-        const std::vector<Size> sizes = quickMode == "narrow" ? std::vector<Size>{{640,720,1.5f}} : quick ? std::vector<Size>{{1920,1080,1}} : translations ?
+        const std::vector<Size> sizes = hudOnly ? std::vector<Size>{{640,480,1}, {800,600,1}, {1024,768,1}, {1280,720,1}, {1366,768,1},
+                {1600,900,1}, {1920,1080,1}, {2560,1440,1}, {3440,1440,1}, {3840,2160,1}} : quickMode == "narrow" ? std::vector<Size>{{640,720,1.5f}} : quick ? std::vector<Size>{{1920,1080,1}} : translations ?
             std::vector<Size>{{640,720,1.5f}, {1280,720,1}, {1920,1080,1.5f}} :
             std::vector<Size>{{1280,720,1}, {1920,1080,1}, {1920,1080,1.25f}, {1920,1080,1.5f}, {2560,1440,1.5f}, {640,720,1.5f}, {3440,1440,1}, {3840,2160,1}, {3840,2160,1.5f}, {1280,720,2}};
         int frames = 0;
@@ -596,6 +599,36 @@ int main(int argc, char** argv) {
             };
             const auto page=[&](const char* screen){shell.Navigation().Home();if(std::string(screen)!="home")shell.Navigation().Push(screen);draw(screen);};
             SetMenuGlyphs(3,0x40000,0x20000);
+            if(hudOnly){
+                // Collected like the overflows, so one run lists every size the HUD does not fit.
+                mode=2;draw("training-hud");
+                auto* hud=FindWindow("Training frame meter");
+                if(hud->Size.x>size.w*.76f||hud->Size.y>=size.h*.14f)overflows.insert(probeContext+": passive HUD too large, "+std::to_string(static_cast<int>(hud->Size.x))+"x"+std::to_string(static_cast<int>(hud->Size.y)));
+                if(hud->Pos.y+hud->Size.y>size.h*.83f)overflows.insert(probeContext+": training HUD covers the game's super meters");
+                // What a recording and a playback add over the meter.
+                training.mode=training::Mode::Recording;training.cursor=412;draw("training-hud-recording");
+                Require(!io.WantCaptureKeyboard&&!io.WantCaptureMouse,"Recording HUD captured input");
+                training.mode=training::Mode::Playback;training.cursor=45;draw("training-hud-playback");
+                training.mode=training::Mode::Idle;training.cursor=0;draw();
+                // Every part but the bars (the third row) turned off in the controls leaves the two bars, and on again restores them.
+                const int parts=static_cast<int>(sizeof(TrainingHudPartList)/sizeof(*TrainingHudPartList));
+                const float whole=hud->Size.y;
+                // The controls go home on a new battle, so they are drawn once before the page is opened.
+                mode=1;draw();TrainingNavigation().Home();TrainingNavigation().Push("hud");draw("training-hud-page");
+                // The page reopens on the row it was left on, so each pass starts from the top.
+                const auto press=[&](unsigned button){draw(nullptr,button,1);draw(nullptr,0,1);};
+                for(int row=0;row<parts;++row)press(MenuInput::Up);
+                for(int row=0;row<parts;++row){if(row)press(MenuInput::Down);if(row!=2)press(MenuInput::Right);}
+                mode=2;draw();draw("training-hud-bars-only");
+                Require(FindWindow("Training frame meter")->Size.y<whole*.6f,"HUD parts did not turn off");
+                mode=1;TrainingNavigation().Home();TrainingNavigation().Push("hud");draw();
+                for(int row=0;row<parts;++row)press(MenuInput::Up);
+                for(int row=0;row<parts;++row){if(row)press(MenuInput::Down);if(row!=2)press(MenuInput::Right);}
+                mode=2;draw();draw();
+                Require(std::abs(FindWindow("Training frame meter")->Size.y-whole)<1,"HUD parts did not turn on again");
+                TrainingNavigation().Home();
+                ImGui_ImplDX9_Shutdown();ImGui::DestroyContext();continue;
+            }
             // The launch card opens once for mismatched game settings. Right
             // moves to "Don't show again" and Back declines it, so this covers
             // the two-button notice without writing the real preference.
@@ -929,7 +962,7 @@ int main(int argc, char** argv) {
             Require(TrainingNavigation().Focus()=="recording","Removed practice position still occupies training root");
             // The dummy rows name the game's own settings, as the adapter reads them.
             training.dummy.action=1;training.dummy.guard=2;training.dummy.counterHit=1;training.dummy.quickStand=3;training.dummy.super=5;training.dummy.revenge=7;
-            for(const char* screen:{"recording","history","tools"}){
+            for(const char* screen:{"recording","history","tools","hud"}){
                 TrainingNavigation().Home();TrainingNavigation().Push(screen);draw((std::string("training-")+screen).c_str());
             }
             TrainingNavigation().Home();TrainingNavigation().Push("recording");draw();
@@ -951,7 +984,7 @@ int main(int argc, char** argv) {
             Require(!io.WantCaptureKeyboard&&!io.WantCaptureMouse,"Passive training HUD captured input");
             CheckMatchHudScales();
             // Two bars, an input lane a fighter, the readings and the legend.
-            auto* hud=FindWindow("Training frame meter");Require(hud->Size.x<=size.w*.76f&&hud->Size.y<size.h*.17f,"Passive HUD too large");
+            auto* hud=FindWindow("Training frame meter");Require(hud->Size.x<=size.w*.76f&&hud->Size.y<size.h*.14f,"Passive HUD too large");
             Require(hud->Pos.y+hud->Size.y<=size.h*.83f,"Training HUD covers the game's super meters");
             SetMenuGlyphs(4,0,0);draw("training-hud-directinput");
             Require(!io.WantCaptureKeyboard&&!io.WantCaptureMouse,"DirectInput HUD captured input");

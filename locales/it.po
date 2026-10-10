@@ -1428,6 +1428,42 @@ msgstr "Posizione e manichino"
 msgid "training.tools.detail"
 msgstr "Salva e ripristina la posizione, imposta il manichino e cosa fa da solo."
 
+msgid "training.hud"
+msgstr "HUD"
+
+msgid "training.hud.detail"
+msgstr "Scegli cosa mostra il misuratore di frame durante lo scontro."
+
+msgid "training.hud.readings"
+msgstr "Dati sui frame"
+
+msgid "training.hud.inputs"
+msgstr "Tasti premuti"
+
+msgid "training.hud.legend"
+msgstr "Legenda dei colori"
+
+msgid "training.hud.shortcuts"
+msgstr "Pulsanti di scelta rapida"
+
+msgid "training.hud.bars"
+msgstr "Barre dei frame"
+
+msgid "training.hud.counts"
+msgstr "Numero di frame"
+
+msgid "training.hud.state"
+msgstr "Stato del misuratore"
+
+msgid "training.hud.hints"
+msgstr "Promemoria dei tasti"
+
+msgid "training.hud.status"
+msgstr "Stato registrazione"
+
+msgid "training.hud.part_detail"
+msgstr "Sinistra e Destra attivano o disattivano questa parte. F5 nasconde tutto l'HUD."
+
 msgid "training.match.checkpoint_disabled"
 msgstr "Shared save/reset is disabled during rollback matches in nightly."
 

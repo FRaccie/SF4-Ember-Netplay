@@ -1428,6 +1428,42 @@ msgstr "位置和木桩"
 msgid "training.tools.detail"
 msgstr "保存和重置位置，设置木桩及其反击。"
 
+msgid "training.hud"
+msgstr "HUD"
+
+msgid "training.hud.detail"
+msgstr "选择对战中帧数表显示的内容。"
+
+msgid "training.hud.readings"
+msgstr "帧数数据"
+
+msgid "training.hud.inputs"
+msgstr "按下的按键"
+
+msgid "training.hud.legend"
+msgstr "颜色图例"
+
+msgid "training.hud.shortcuts"
+msgstr "快捷键按钮"
+
+msgid "training.hud.bars"
+msgstr "帧数条"
+
+msgid "training.hud.counts"
+msgstr "帧数数字"
+
+msgid "training.hud.state"
+msgstr "帧数表状态"
+
+msgid "training.hud.hints"
+msgstr "按键提示"
+
+msgid "training.hud.status"
+msgstr "录制状态"
+
+msgid "training.hud.part_detail"
+msgstr "左右可开关此项。F5 隐藏整个 HUD。"
+
 msgid "training.match.checkpoint_disabled"
 msgstr "Shared save/reset is disabled during rollback matches in nightly."
 

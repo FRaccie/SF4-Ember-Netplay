@@ -1428,6 +1428,42 @@ msgstr "Positie en dummy"
 msgid "training.tools.detail"
 msgstr "Bewaar en herstel de positie, stel de dummy in en wat hij uit zichzelf doet."
 
+msgid "training.hud"
+msgstr "HUD"
+
+msgid "training.hud.detail"
+msgstr "Kies wat de framemeter tijdens het gevecht toont."
+
+msgid "training.hud.readings"
+msgstr "Framegegevens"
+
+msgid "training.hud.inputs"
+msgstr "Ingedrukte knoppen"
+
+msgid "training.hud.legend"
+msgstr "Kleurenlegenda"
+
+msgid "training.hud.shortcuts"
+msgstr "Sneltoetsknoppen"
+
+msgid "training.hud.bars"
+msgstr "Framebalken"
+
+msgid "training.hud.counts"
+msgstr "Frame-aantallen"
+
+msgid "training.hud.state"
+msgstr "Meterstatus"
+
+msgid "training.hud.hints"
+msgstr "Toetshints"
+
+msgid "training.hud.status"
+msgstr "Opnamestatus"
+
+msgid "training.hud.part_detail"
+msgstr "Links en Rechts zetten dit onderdeel aan of uit. F5 verbergt de hele HUD."
+
 msgid "training.match.checkpoint_disabled"
 msgstr "Shared save/reset is disabled during rollback matches in nightly."
 

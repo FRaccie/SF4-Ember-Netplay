@@ -39,6 +39,7 @@ struct Lab {
     // position as offsets from F1 (-1 unbound): the player's, kept in training.json.
     training::DummyPlan plan; std::string replyMoves;
     int keys[2]={1,10};
+    TrainingHudParts hud;
 } lab;
 enum { ResetKey, SaveKey };
 constexpr const wchar_t* PracticeFile=L"training.json";
@@ -48,8 +49,9 @@ bool FreeKey(const nlohmann::json& key) { return key.is_number_integer()&&key>=-
 void SavePractice() {
     if(lab.directory.empty()) return;
     std::string error;
-    const nlohmann::json practice{{"reply",{{"when",lab.plan.when},{"slot",lab.plan.slot},{"chance",lab.plan.chance},{"timing",lab.plan.timing},
+    nlohmann::json practice{{"reply",{{"when",lab.plan.when},{"slot",lab.plan.slot},{"chance",lab.plan.chance},{"timing",lab.plan.timing},
         {"vary_stance",lab.plan.varyStance},{"moves",lab.replyMoves}}},{"keys",{{"reset_position",lab.keys[ResetKey]},{"save_position",lab.keys[SaveKey]}}}};
+    for(const auto& part:TrainingHudPartList) practice["hud"][part.id]=lab.hud.*part.shown;
     if(!netplay::json_file::Publish(lab.directory,PracticeFile,practice,error)) Notice(loc::T("training.save_failed"),true);
 }
 // The plan into the game, its typed reply made into input for either facing.
@@ -81,6 +83,9 @@ void LoadPractice() {
     const auto save=listed?keys[5]:keys.is_object()?keys.value("save_position",nlohmann::json()):nlohmann::json();
     if(FreeKey(reset)) lab.keys[ResetKey]=reset.get<int>();
     if(FreeKey(save)&&(save<0||save!=lab.keys[ResetKey])) lab.keys[SaveKey]=save.get<int>();
+    // A part shows unless the file says it does not.
+    const auto hud=practice.value("hud",nlohmann::json::object());
+    for(const auto& part:TrainingHudPartList) lab.hud.*part.shown=!hud.is_object()||hud.value(part.id,nlohmann::json(true))!=false;
 }
 void SavePosition(const training::View& view,const TrainingSubmit& submit) {
     Command command; command.action=Action::Save; command.generation=view.generation;
@@ -218,6 +223,7 @@ void TrainingHotkeys(const training::View& view,const TrainingSubmit& submit,boo
     if(!padSelect&&downAt>=0) { if(!saved&&now-downAt<.5) ResetPosition(view,submit); downAt=-1; }
 }
 bool TrainingHotkeyBound(int fromF1) { return fromF1>=0&&(lab.keys[ResetKey]==fromF1||lab.keys[SaveKey]==fromF1); }
+const TrainingHudParts& TrainingHudShown() { LoadPractice(); return lab.hud; }
 std::string TrainingKeyHints() {
     std::string hints;
     const char* const names[]={"training.position.reset","training.position.save"};
@@ -338,6 +344,7 @@ void DrawTrainingPanel(const training::View& v,const TrainingSubmit& submit) {
   rows={Row("recording",loc::T("training.dummy_recording"),loc::T("training.dummy_recording.detail")),
    Row("history",loc::T("training.input_history"),loc::T("training.input_history.detail")),
    Row("tools",loc::T("training.tools"),loc::T("training.tools.detail")),
+   Row("hud",loc::T("training.hud"),loc::T("training.hud.detail")),
    InfoRow("about",loc::T("training.guide"),"",loc::T("training.home.guide")),
    Row("return",loc::T("training.close_controls"),loc::T("training.close_controls.detail"))};
  }else if(screen=="recording"){
@@ -356,6 +363,9 @@ void DrawTrainingPanel(const training::View& v,const TrainingSubmit& submit) {
   rows.push_back(Value("load-recording",loc::T("training.load_recording"),recordings.empty()?loc::T("training.recording_none"):recordings[(std::min)(recordingChoice,recordings.size()-1)],loc::T("training.load_recording.detail"),!recordings.empty()&&ready&&v.mode==Mode::Idle));
  }else if(screen=="tools"){
   rows=ToolRows(v);
+ }else if(screen=="hud"){
+  const auto& hud=TrainingHudShown();
+  for(const auto& part:TrainingHudPartList)rows.push_back(Value(part.id,loc::T(part.label),loc::T(hud.*part.shown?"common.on":"common.off"),loc::T("training.hud.part_detail")));
  }else{
   // The history is longer than the detail pane, so Select opens it in a reader.
   rows={InfoRow("about",loc::T("training.guide"),"",loc::T("training.history.guide")),
@@ -383,6 +393,11 @@ void DrawTrainingPanel(const training::View& v,const TrainingSubmit& submit) {
  if(a.kind==MenuAction::Activate&&screen=="home"&&a.id!="about"){if(a.id=="recording")ListRecordings();nav.Push(a.id);return;}
  if(screen=="recording"&&HandleRecordingLibrary(a,v,submit))return;
  if(screen=="tools"){HandleTools(a,v,submit);return;}
+ if(screen=="hud"){
+  if(a.kind!=MenuAction::Activate&&a.kind!=MenuAction::Adjust)return;
+  for(const auto& part:TrainingHudPartList)if(a.id==part.id){lab.hud.*part.shown=!(lab.hud.*part.shown);SavePractice();}
+  return;
+ }
  if(a.kind!=MenuAction::Activate&&a.kind!=MenuAction::Adjust)return;
  Command command;command.generation=v.generation;command.requestId=nextRequest++;
  if(a.id.compare(0,5,"slot-")==0){command.action=Action::Select;command.value=std::stoi(a.id.substr(5));}

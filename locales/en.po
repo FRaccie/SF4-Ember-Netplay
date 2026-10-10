@@ -1428,6 +1428,42 @@ msgstr "Position and dummy"
 msgid "training.tools.detail"
 msgstr "Save and reset the position, set the dummy and what it does by itself."
 
+msgid "training.hud"
+msgstr "HUD"
+
+msgid "training.hud.detail"
+msgstr "Pick what the frame meter shows over the fight."
+
+msgid "training.hud.readings"
+msgstr "Frame data"
+
+msgid "training.hud.inputs"
+msgstr "Pressed buttons"
+
+msgid "training.hud.legend"
+msgstr "Color key"
+
+msgid "training.hud.shortcuts"
+msgstr "Shortcut buttons"
+
+msgid "training.hud.bars"
+msgstr "Frame bars"
+
+msgid "training.hud.counts"
+msgstr "Frame counts"
+
+msgid "training.hud.state"
+msgstr "Meter state"
+
+msgid "training.hud.hints"
+msgstr "Key hints"
+
+msgid "training.hud.status"
+msgstr "Recording status"
+
+msgid "training.hud.part_detail"
+msgstr "Left and Right turn this part on or off. F5 hides the whole HUD."
+
 msgid "training.match.checkpoint_disabled"
 msgstr "Shared save/reset is disabled during rollback matches in nightly."
 
