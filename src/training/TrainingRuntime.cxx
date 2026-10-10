@@ -136,6 +136,14 @@ DummyState ReadDummyState(const DummyState& fallback) {
     state.super = options[Manager::OPT_SC_GAUGE]; state.revenge = options[Manager::OPT_REVENGE_GAUGE];
     return state;
 }
+bool OneDevice() {
+    Pad* pad = Pad::staticMethods.GetSingleton();
+    if (!pad) return false;
+    const int type = (pad->*Pad::publicMethods.GetDeviceTypeForPlayer)(0);
+    // The keyboard sits in both of the game's keyboard slots.
+    return type == (pad->*Pad::publicMethods.GetDeviceTypeForPlayer)(1) && (type == Dimps::Pad::PADTYPE_RAWINPUT ||
+        (pad->*Pad::publicMethods.GetDeviceIndexForPlayer)(0) == (pad->*Pad::publicMethods.GetDeviceIndexForPlayer)(1));
+}
 View ReadView() { std::lock_guard<std::mutex> lock(mutex); return published; }
 bool ControlsAvailable() {
     if(!session.GetView().available || Battle::ggpo) return false;
@@ -241,6 +249,19 @@ void BeforeUpdate(Native* system, bool networkOwned) {
     for (int side = 0; side < 2 && !menu; ++side) {
         physical[side].mapped = (pad->*Pad::publicMethods.GetButtons_MappedOn)(side);
         physical[side].raw = (pad->*Pad::publicMethods.GetButtons_RawOn)(side);
+    }
+    // With one device the game reads it for both sides, so Player 2 would
+    // show Player 1's presses.
+    const bool oneDevice = !menu && OneDevice();
+    if (oneDevice) physical[1] = Input{};
+    // Said when it changes, so a log shows why Player 2's presses were or were not drawn.
+    static int told = -1;
+    if (!menu && told != oneDevice) {
+        told = oneDevice;
+        spdlog::info("Training: pads {}/{} and {}/{} (type/index); Player 2's presses are {}",
+            (pad->*Pad::publicMethods.GetDeviceTypeForPlayer)(0), (pad->*Pad::publicMethods.GetDeviceIndexForPlayer)(0),
+            (pad->*Pad::publicMethods.GetDeviceTypeForPlayer)(1), (pad->*Pad::publicMethods.GetDeviceIndexForPlayer)(1),
+            oneDevice ? "not shown: both sides read one device" : "shown");
     }
     output = session.Prepare(physical);
     commitInput = true;

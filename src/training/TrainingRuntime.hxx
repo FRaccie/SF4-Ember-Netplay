@@ -5,6 +5,9 @@
 namespace Dimps { namespace Game { namespace Battle { struct System; } } }
 namespace sf4e { namespace training {
 View ReadView();
+// Both sides hold the same device, so the game reads Player 1's presses for
+// Player 2 as well.
+bool OneDevice();
 bool Submit(Command command);
 // Game-thread context guard, including leaving-battle and network ownership.
 bool ControlsAvailable();
