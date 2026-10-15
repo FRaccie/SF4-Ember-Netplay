@@ -19,6 +19,7 @@ int main() {
     try {
         Require(selftest::Parse(L"training") == selftest::Test::Training, "training names the training test");
         Require(selftest::Parse(L"hitboxes") == selftest::Test::Hitboxes, "hitboxes names the hitboxes test");
+        Require(selftest::Parse(L"replay") == selftest::Test::Replay, "replay names the replay test");
         Require(selftest::Parse(L"") == selftest::Test::None, "no name, no test");
         Require(selftest::Parse(L"room-host") == selftest::Test::RoomHost && selftest::Parse(L"room-guest") == selftest::Test::RoomGuest,
             "each side of the room test has its name");
