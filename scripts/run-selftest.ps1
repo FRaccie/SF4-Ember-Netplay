@@ -12,11 +12,19 @@
 param(
     [string]$PackageDir = "",
     # The names sf4e__SelfTest.hxx knows (selftest::Test).
-    [ValidateSet("training", "room-host", "room-guest")]
+    [ValidateSet("training", "room-host", "room-guest", "hitboxes")]
     [string]$Test = "training",
     # The room tests: the file the host writes its invitation to, and the
     # guest reads it from once the runner has copied it across.
     [string]$Invite = "",
+    # Where the result, and whatever else the test writes beside it, is kept.
+    # Without it the result is printed and removed.
+    [string]$KeepDir = "",
+    # The hitboxes test: who fights, as the game numbers them, Player 1 first
+    # ("1,0" is Ken against Ryu). Ryu against Ryu without it.
+    [string]$Fighters = "",
+    # The hitboxes test: only the scenarios whose name holds this text.
+    [string]$Only = "",
     [int]$TimeoutMinutes = 20
 )
 
@@ -86,16 +94,20 @@ function Get-RunLog([string]$pattern, [datetime]$since) {
 # Hosting, joining and the controller a room needs write Ember's settings, so
 # a room test puts them back as they were.
 $settings = @()
-if ($Test -ne "training") {
+if ($Test -like "room-*") {
     if (-not $Invite) { throw "-Invite is needed for $Test" }
     $settings = @("settings.json", "ui-preferences.json") | ForEach-Object { Join-Path $env:APPDATA "sf4e\$_" }
     $settings | Where-Object { Test-Path $_ } | ForEach-Object { Copy-Item $_ "$_.selftest" -Force }
     $env:SF4E_SELFTEST_INVITE = $Invite
 }
 
-$result = Join-Path $env:TEMP ("ember-selftest-" + [guid]::NewGuid().ToString("N") + ".txt")
+$result = if ($KeepDir) { Join-Path (New-Item -ItemType Directory -Path $KeepDir -Force).FullName "selftest-$Test.txt" }
+    else { Join-Path $env:TEMP ("ember-selftest-" + [guid]::NewGuid().ToString("N") + ".txt") }
+if (Test-Path $result) { Remove-Item $result }
 $env:SF4E_SELFTEST = $Test
 $env:SF4E_SELFTEST_RESULT = $result
+if ($Fighters) { $env:SF4E_SELFTEST_FIGHTERS = $Fighters }
+if ($Only) { $env:SF4E_SELFTEST_ONLY = $Only }
 try {
     $began = (Get-Date).AddSeconds(-1)
     $process = Start-Process -FilePath $launcher -WorkingDirectory $PackageDir -PassThru
@@ -144,7 +156,7 @@ try {
     if (-not $process.WaitForExit(10000)) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
 }
 finally {
-    Remove-Item Env:SF4E_SELFTEST, Env:SF4E_SELFTEST_RESULT, Env:SF4E_SELFTEST_INVITE -ErrorAction SilentlyContinue
+    Remove-Item Env:SF4E_SELFTEST, Env:SF4E_SELFTEST_RESULT, Env:SF4E_SELFTEST_INVITE, Env:SF4E_SELFTEST_FIGHTERS, Env:SF4E_SELFTEST_ONLY -ErrorAction SilentlyContinue
     # A file the run created is removed; one it changed is put back.
     $settings | ForEach-Object { if (Test-Path "$_.selftest") { Move-Item "$_.selftest" $_ -Force } else { Remove-Item $_ -ErrorAction SilentlyContinue } }
 }
@@ -155,6 +167,6 @@ if (-not (Test-Path $result) -or -not (Get-Content $result | Select-String -Quie
 }
 $lines = Get-Content $result
 $lines | ForEach-Object { Write-Host $_ }
-Remove-Item $result
+if (-not $KeepDir) { Remove-Item $result }
 if ($lines -contains "RESULT pass") { exit 0 }
 exit 1

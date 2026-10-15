@@ -76,6 +76,12 @@ std::atomic<int> meterHistory{static_cast<int>(MeterHistory)};
 std::atomic<bool> meterContinuous{false};
 // The in-game self-test's: the lab also runs in an offline Versus battle.
 bool versusForTest = false;
+// The in-game self-test's: input for one side that no recording slot plays,
+// a frame an update until it runs out. askedTrack waits for the game thread.
+std::vector<Input> track, askedTrack;
+std::size_t trackAt = 0;
+int trackSide = 1, askedSide = 1;
+bool trackAsked = false;
 bool matchShown = false;
 ConfirmedSamples confirmed;
 // A Practice room's match. It has no shared checkpoint: the
@@ -327,7 +333,10 @@ void BeforeUpdate(Native* system, bool networkOwned) {
         *Native::GetReadyState(system) == Native::RS_FIGHT);
     ReconcileDummy(system);
     std::deque<Command> taken; std::vector<std::uint64_t> replaced;
-    { std::lock_guard<std::mutex> lock(mutex); commands.Take(taken, replaced); }
+    {
+        std::lock_guard<std::mutex> lock(mutex); commands.Take(taken, replaced);
+        if (trackAsked) { track.swap(askedTrack); trackSide = askedSide; trackAt = 0; trackAsked = false; }
+    }
     RunBatch(PrepareBatch(taken, replaced, session.GetView().generation), acks, [system](const Command& command) { return Dispatch(system, command); });
     // The countdown follows the call that stands for this battle, before it
     // ticks, so a call that has ended can never take the battle away and a
@@ -369,6 +378,7 @@ void BeforeUpdate(Native* system, bool networkOwned) {
         commitInput = true;
     }
     overriding = plan.override;
+    if (trackAt < track.size()) { output[trackSide] = track[trackAt++]; overriding = true; }
     FollowDummy(system, plan.suppliesDummy);
 }
 // The fighter a player brought into this battle; -1 when the request holds
@@ -573,6 +583,10 @@ unsigned ClearReservedInputBits(unsigned raw) {
     return matchPractice ? raw & ~ReservedInputBits : raw;
 }
 void AllowOfflineVersusForTest() { versusForTest = true; }
+void PlayTrackForTest(int side, std::vector<Input> frames) {
+    std::lock_guard<std::mutex> lock(mutex);
+    askedTrack = std::move(frames); askedSide = side & 1; trackAsked = true;
+}
 void WatchMatches(bool enabled) { watching = enabled; }
 void SetMeterHistory(int frames, bool continuous) { meterHistory = frames; meterContinuous = continuous; }
 void ObserveMatch(Native* system, int stateFrame, int lastConfirmedInput, const unsigned* inputs) {

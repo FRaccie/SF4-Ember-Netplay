@@ -74,6 +74,34 @@ to go live. The host then ends the game and both leave the room. Hosting,
 the names the two sides take and the controller a room needs write Ember's
 settings, so the script copies them first and puts them back after the run.
 
+## The hitboxes test
+
+`-Test hitboxes -KeepDir <folder>`, with `-Fighters "1,0"` for who fights (as
+the game numbers them, Player 1 first; Ryu against Ryu without it) and
+`-Only <text>` for the scenarios whose name holds that text. In an offline
+Versus battle Player 1 attacks Player 2: twelve normals, a jump-in, a
+Shoryuken and a throw on a standing opponent, three strikes and a throw on a
+crouching one, a strike on an opponent whose own kick is on its way back, a
+fireball, and a jab on the first frames of a Shoryuken and of a backdash.
+Where a reach can be searched, the distance between the fighters is halved
+eight times towards the last one that hit, which gives the attack's reach to
+about a hundredth of a unit. Each try starts from a saved position, so health
+and clock are the same. About twelve minutes a matchup.
+
+- Every try has to come out as the lab's Hitboxes display shows it: an attack
+  box of Player 1 in a box of the opponent it can connect with
+  (`training::TouchDepth`) in every try that hit, and in none that did not. A
+  try the boxes decide by less than a hundredth of a unit counts for neither.
+- Every frame of every try goes raw into `selftest-hitboxes.txt.boxes` beside
+  the result (about 500 MB): both actors' body boxes and attack boxes, and
+  for some scenarios more of the game's memory to search.
+  `python scripts/analyze-boxes.py <folder>` says, for each of the game's
+  boxes, whether it explains the outcomes. That is how the display's choice
+  of boxes was made, and how to remake it when a move disagrees.
+
+`training::PlayTrackForTest` is the seam that lets Player 2 crouch or attack
+meanwhile: frames for one side that no recording slot plays.
+
 ## The title screen
 
 The title screen learns from its Start which device, and so which profile,

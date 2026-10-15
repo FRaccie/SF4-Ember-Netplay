@@ -47,6 +47,10 @@ unsigned ClearReservedInputBits(unsigned raw);
 // For the in-game self-test: lets the lab into an offline Versus battle too,
 // where it otherwise runs in a Training battle only. Game thread.
 void AllowOfflineVersusForTest();
+// For the in-game self-test: plays frames on a side, one an update from the
+// next update on, beside whatever a recording slot plays on the other. It
+// replaces the frames asked for before; none stops them. Any thread.
+void PlayTrackForTest(int side, std::vector<Input> frames);
 // Whether the player wants that meter. Any thread.
 void WatchMatches(bool enabled);
 // How many frames the meter keeps, and whether an exchange after a pause goes
